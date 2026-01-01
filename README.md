@@ -162,10 +162,6 @@ novelscrape/
 ├── clean_epub_file.py         # EPUB cleaning utility
 ├── downloads/                 # Downloaded chapters (gitignored)
 ├── webdriver/                 # Chrome driver executables
-├── .kilocode/               # Project documentation and rules
-│   ├── docs/                 # Documentation files
-│   ├── rules/                # Project rules
-│   └── artifacts/            # Reports, logs, plans
 └── README.md                 # This file
 ```
 
@@ -224,8 +220,6 @@ If detected, wait or use a different approach.
 
 For detailed usage examples and advanced features, see:
 - [`usage.md`](usage.md) - Comprehensive usage guide
-- [`.kilocode/docs/README_UNIFIED_COMBINER.md`](.kilocode/docs/README_UNIFIED_COMBINER.md) - Unified combiner documentation
-- [`.kilocode/docs/QUICK_MODE_USAGE.md`](.kilocode/docs/QUICK_MODE_USAGE.md) - Quick mode guide
 
 ## Specialized Scripts
 
@@ -267,7 +261,6 @@ This project is provided as-is for educational and personal use.
 ## Support
 
 For issues, questions, or suggestions:
-- Check documentation in `.kilocode/docs/`
 - Review `usage.md` for detailed examples
 - Test with small chapter ranges first
 

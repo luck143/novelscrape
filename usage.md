@@ -423,5 +423,4 @@ python unified_combiner.py --combine --input downloads/novelname --clean
 ---
 
 For more information, see:
-- README_UNIFIED_COMBINER.md - Complete documentation
 - unified_combiner.py --help - Command-line help
