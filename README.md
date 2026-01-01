@@ -15,9 +15,9 @@ A Python-based web scraping system for downloading novel chapters from multiple 
 
 NovelScrape currently supports the following websites:
 
-1. **boxnovel.com** - BoxNovel
-2. **novelfull.com** - NovelFull
-3. **empirenovel.com** - EmpireNovel
+1. **empirenovel.com** - EmpireNovel ⭐ (Most recently tested with nine-star-hegemon-body-arts)
+2. **boxnovel.com** - BoxNovel
+3. **novelfull.com** - NovelFull
 4. **lightnovelworld.co** - LightNovelWorld
 5. **novelbin.com** - NovelBin
 6. **novelontop.com** - NovelOnTop
@@ -27,6 +27,8 @@ NovelScrape currently supports the following websites:
 10. **wuxiaz.com** - WuxiaZ
 11. **novelhi.com** - NovelHi
 12. **freewebnovel.com** - FreeWebNovel
+
+> **Note:** Website domains may change over time. EmpireNovel has been most recently tested and verified working with the example novel "nine-star-hegemon-body-arts".
 
 ## Installation
 

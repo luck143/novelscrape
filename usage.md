@@ -3,6 +3,8 @@
 This file contains practical examples of using the unified_combiner.py script
 for various common tasks in the NovelScrape workflow.
 
+> **Recommended Website:** EmpireNovel (empirenovel.com) with novel "nine-star-hegemon-body-arts" is the most recently tested and verified configuration. Website domains may change over time, so start with EmpireNovel if you encounter issues with other sites.
+
 ## Table of Contents
 1. Interactive Mode
 2. Combine TXT Files

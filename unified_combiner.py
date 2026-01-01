@@ -30,7 +30,11 @@ output_path = 'downloads/nine-star-hegemon-body-arts.epub'  # e.g., 'downloads/c
 chapter_marker = 'full'  # Options: 'full', 'simple', 'none'
 
 # Clean text content (removes dots between letters, .+ patterns)
-clean_text = False  # Set to True to enable cleaning
+clean_text = True  # Set to True to enable cleaning
+
+# Chapter range (optional - set to None to include all chapters)
+start_chapter = None  # Starting chapter number (e.g., 1)
+end_chapter = None  # Ending chapter number (e.g., 100)
 
 # EPUB metadata (used when operation = 'epub')
 epub_title = 'Nine Star Hegemon Body Arts'  # Title for EPUB
@@ -52,11 +56,13 @@ from ebooklib import epub
 
 def clean_text_content(content):
     """
-    Clean text content by removing extra dots between letters and .+ patterns.
+    Clean text content by removing extra dots between letters, .+ patterns, and whitespace issues.
     
     This function removes:
     1. Dots that appear between letters (like f.u.c -> fuc)
     2. .+ patterns that might appear in the text
+    3. Extra whitespace (multiple spaces, leading/trailing spaces on lines)
+    4. Excessive blank lines (more than 2 consecutive newlines)
     
     while preserving legitimate punctuation (periods at sentence endings, etc.).
     
@@ -82,6 +88,17 @@ def clean_text_content(content):
     pattern_dot_plus = r'\.\+'
     cleaned_content = re.sub(pattern_dot_plus, '', cleaned_content)
     
+    # Remove multiple consecutive spaces
+    cleaned_content = re.sub(r' +', ' ', cleaned_content)
+    
+    # Remove leading/trailing whitespace from each line
+    lines = cleaned_content.split('\n')
+    lines = [line.strip() for line in lines]
+    cleaned_content = '\n'.join(lines)
+    
+    # Remove excessive blank lines (more than 2 consecutive newlines)
+    cleaned_content = re.sub(r'\n\n\n+', '\n\n', cleaned_content)
+    
     return cleaned_content
 
 
@@ -104,8 +121,19 @@ def sort_by_mtime(files):
     return sorted(files, key=lambda x: os.path.getmtime(x))
 
 
-def get_txt_files(path, sort_method='mtime'):
-    """Get all TXT files from a directory and sort them."""
+def get_txt_files(path, sort_method='mtime', start_chapter=None, end_chapter=None):
+    """
+    Get all TXT files from a directory, sort them, and optionally filter by chapter range.
+    
+    Args:
+        path: Directory path containing TXT files
+        sort_method: 'mtime' or 'natural' sorting method
+        start_chapter: Starting chapter number (inclusive), None to start from first
+        end_chapter: Ending chapter number (inclusive), None to end at last
+    
+    Returns:
+        List of file paths matching the criteria
+    """
     files = list(filter(os.path.isfile, glob.glob(os.path.join(path, "*.txt"))))
     
     if sort_method == 'natural':
@@ -114,10 +142,31 @@ def get_txt_files(path, sort_method='mtime'):
     else:  # default: mtime
         files = sort_by_mtime(files)
     
+    # Filter by chapter range if specified
+    if start_chapter is not None or end_chapter is not None:
+        filtered_files = []
+        for filepath in files:
+            filename = os.path.basename(filepath)
+            # Extract chapter number from filename (e.g., "1.txt" -> 1, "chapter-10.txt" -> 10)
+            # Try to find the first number in the filename
+            match = re.search(r'\d+', filename)
+            if match:
+                chapter_num = int(match.group())
+                
+                # Check if chapter is within range
+                if start_chapter is not None and chapter_num < start_chapter:
+                    continue
+                if end_chapter is not None and chapter_num > end_chapter:
+                    continue
+                
+                filtered_files.append(filepath)
+        
+        files = filtered_files
+    
     return files
 
 
-def combine_to_txt(input_path, output_path, chapter_marker='full', clean=False, verbose=True):
+def combine_to_txt(input_path, output_path, chapter_marker='full', clean=False, verbose=True, start_chapter=None, end_chapter=None):
     """
     Combine TXT files into a single TXT file.
     
@@ -130,11 +179,16 @@ def combine_to_txt(input_path, output_path, chapter_marker='full', clean=False, 
                         - 'none': No marker
         clean: Whether to clean the text content (remove dots between letters, .+ patterns)
         verbose: Print progress information
+        start_chapter: Starting chapter number (inclusive), None to start from first
+        end_chapter: Ending chapter number (inclusive), None to end at last
     """
     if verbose:
         print(f"Reading files from: {input_path}")
+        if start_chapter is not None or end_chapter is not None:
+            range_str = f" (chapters {start_chapter if start_chapter else 'start'} to {end_chapter if end_chapter else 'end'})"
+            print(f"Filtering by chapter range{range_str}")
     
-    files = get_txt_files(input_path, sort_method='mtime')
+    files = get_txt_files(input_path, sort_method='mtime', start_chapter=start_chapter, end_chapter=end_chapter)
     
     if not files:
         print("No TXT files found in the specified directory!")
@@ -173,7 +227,7 @@ def combine_to_txt(input_path, output_path, chapter_marker='full', clean=False, 
     return True
 
 
-def txt_to_epub(folder_path, epub_file, title="Untitled", author="Unknown", clean=False, verbose=True):
+def txt_to_epub(folder_path, epub_file, title="Untitled", author="Unknown", clean=False, verbose=True, start_chapter=None, end_chapter=None):
     """
     Convert TXT files in a folder to an EPUB file.
     
@@ -184,10 +238,15 @@ def txt_to_epub(folder_path, epub_file, title="Untitled", author="Unknown", clea
         author: Author of the EPUB
         clean: Whether to clean the text content (remove dots between letters, .+ patterns)
         verbose: Print progress information
+        start_chapter: Starting chapter number (inclusive), None to start from first
+        end_chapter: Ending chapter number (inclusive), None to end at last
     """
     if verbose:
         print(f"Creating EPUB from: {folder_path}")
         print(f"Output EPUB: {epub_file}")
+        if start_chapter is not None or end_chapter is not None:
+            range_str = f" (chapters {start_chapter if start_chapter else 'start'} to {end_chapter if end_chapter else 'end'})"
+            print(f"Filtering by chapter range{range_str}")
     
     # Create a new eBook object
     book = epub.EpubBook()
@@ -201,6 +260,25 @@ def txt_to_epub(folder_path, epub_file, title="Untitled", author="Unknown", clea
     
     # Sort the files naturally (numerically and alphabetically)
     txt_files = sort_naturally(txt_files)
+    
+    # Filter by chapter range if specified
+    if start_chapter is not None or end_chapter is not None:
+        filtered_files = []
+        for filename in txt_files:
+            # Extract chapter number from filename
+            match = re.search(r'\d+', filename)
+            if match:
+                chapter_num = int(match.group())
+                
+                # Check if chapter is within range
+                if start_chapter is not None and chapter_num < start_chapter:
+                    continue
+                if end_chapter is not None and chapter_num > end_chapter:
+                    continue
+                
+                filtered_files.append(filename)
+        
+        txt_files = filtered_files
     
     if not txt_files:
         print("No TXT files found in the specified directory!")
@@ -315,6 +393,18 @@ def interactive_mode():
         print(f"Error: Directory not found: {input_path}")
         sys.exit(1)
     
+    # Ask for chapter range (optional)
+    print("\nChapter range (leave blank to include all chapters):")
+    start_input = input("  Start chapter number (press Enter to start from first): ").strip()
+    start_chapter = int(start_input) if start_input else None
+    
+    end_input = input("  End chapter number (press Enter to end at last): ").strip()
+    end_chapter = int(end_input) if end_input else None
+    
+    if start_chapter is not None and end_chapter is not None and start_chapter > end_chapter:
+        print("Error: Start chapter cannot be greater than end chapter!")
+        sys.exit(1)
+    
     if choice == '1':
         # TXT combining options
         print("\nChapter marker format:")
@@ -349,7 +439,7 @@ def interactive_mode():
         output_path = os.path.join(os.getcwd(), 'downloads', output_name)
         
         # Combine files
-        success = combine_to_txt(input_path, output_path, chapter_marker=chapter_marker, clean=clean)
+        success = combine_to_txt(input_path, output_path, chapter_marker=chapter_marker, clean=clean, start_chapter=start_chapter, end_chapter=end_chapter)
         
         if success:
             print(f"\n✓ Combined files saved to: {output_path}")
@@ -383,7 +473,7 @@ def interactive_mode():
         output_path = os.path.join(os.getcwd(), 'downloads', output_name)
         
         # Create EPUB
-        success = txt_to_epub(input_path, output_path, title=title, author=author, clean=clean)
+        success = txt_to_epub(input_path, output_path, title=title, author=author, clean=clean, start_chapter=start_chapter, end_chapter=end_chapter)
         
         if success:
             print(f"\n✓ EPUB created: {output_path}")
@@ -413,6 +503,15 @@ Examples:
   
   # Combine with simple markers
   python unified_combiner.py --combine --input downloads/novelname --marker simple
+  
+  # Combine only chapters 1-100
+  python unified_combiner.py --combine --input downloads/novelname --start 1 --end 100
+  
+  # Create EPUB from chapters 50-150
+  python unified_combiner.py --epub --input downloads/novelname --start 50 --end 150
+  
+  # Combine from chapter 100 to end
+  python unified_combiner.py --combine --input downloads/novelname --start 100
         """
     )
     
@@ -469,6 +568,20 @@ Examples:
     )
     
     parser.add_argument(
+        '--start',
+        type=int,
+        default=None,
+        help='Starting chapter number (inclusive)'
+    )
+    
+    parser.add_argument(
+        '--end',
+        type=int,
+        default=None,
+        help='Ending chapter number (inclusive)'
+    )
+    
+    parser.add_argument(
         '--quiet',
         action='store_true',
         help='Suppress progress output'
@@ -488,6 +601,8 @@ Examples:
         print(f"  Output: {output_path if output_path else 'Auto-generated'}")
         print(f"  Marker: {chapter_marker}")
         print(f"  Clean: {clean_text}")
+        if start_chapter is not None or end_chapter is not None:
+            print(f"  Chapter range: {start_chapter if start_chapter else 'start'} to {end_chapter if end_chapter else 'end'}")
         print("=" * 60 + "\n")
         
         # Set args from configuration
@@ -497,6 +612,8 @@ Examples:
         args.output = output_path
         args.marker = chapter_marker
         args.clean = clean_text
+        args.start = start_chapter
+        args.end = end_chapter
         args.title = epub_title
         args.author = epub_author
         args.quiet = quiet
@@ -538,12 +655,19 @@ Examples:
                 f"{novel_name}_{timestamp}.txt"
             )
         
+        # Validate chapter range
+        if args.start is not None and args.end is not None and args.start > args.end:
+            print("Error: Start chapter cannot be greater than end chapter!")
+            sys.exit(1)
+        
         success = combine_to_txt(
             args.input,
             args.output,
             chapter_marker=args.marker,
             clean=args.clean,
-            verbose=verbose
+            verbose=verbose,
+            start_chapter=args.start,
+            end_chapter=args.end
         )
         
         if not success:
@@ -559,13 +683,20 @@ Examples:
                 f"{novel_name}.epub"
             )
         
+        # Validate chapter range
+        if args.start is not None and args.end is not None and args.start > args.end:
+            print("Error: Start chapter cannot be greater than end chapter!")
+            sys.exit(1)
+        
         success = txt_to_epub(
             args.input,
             args.output,
             title=args.title,
             author=args.author,
             clean=args.clean,
-            verbose=verbose
+            verbose=verbose,
+            start_chapter=args.start,
+            end_chapter=args.end
         )
         
         if not success:

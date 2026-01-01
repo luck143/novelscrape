@@ -46,9 +46,9 @@ website = 'empirenovel.com'  # Change this to your desired website
 novel_name = 'nine-star-hegemon-body-arts'  # Name for saving files (will be used as directory name)
 novel_slug = 'nine-star-hegemon-body-arts'  # Slug from URL (e.g., 'shadow-slave' from URL like boxnovel.com/novel/shadow-slave)
 
-# Chapter range
-start_chapter = 1  # Starting chapter number
-end_chapter = 3  # Ending chapter number (small range for testing)
+# Chapter range (optional - will be prompted if not provided in CLI mode)
+start_chapter = 1  # Starting chapter number (e.g., 1)
+end_chapter = 10  # Ending chapter number (e.g., 100)
 
 # ============================================================================
 
@@ -64,6 +64,7 @@ import sys
 import time
 import json
 import codecs
+import argparse
 
 # Set UTF-8 encoding for Windows console
 if sys.platform == 'win32':
@@ -625,6 +626,70 @@ def confirm_scraping(website, novel_name, novel_slug, start_chapter, end_chapter
         except KeyboardInterrupt:
             print("\n\n✗ Operation cancelled by user")
             sys.exit(0)
+
+
+def parse_cli_args():
+    """
+    Parse CLI arguments
+    
+    Returns:
+        Parsed arguments namespace
+    """
+    parser = argparse.ArgumentParser(
+        description='Unified Novel Scraper - Download novels from multiple websites',
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  # Interactive mode (no arguments)
+  python unified_scraper.py
+  
+  # Quick mode (set QUICK_MODE = True at top of file)
+  python unified_scraper.py
+  
+  # CLI mode with all parameters
+  python unified_scraper.py --website empirenovel.com --novel-name "nine-star-hegemon" --novel-slug "nine-star-hegemon-body-arts" --start 1 --end 100
+  
+  # CLI mode with start chapter only (will prompt for end)
+  python unified_scraper.py --website empirenovel.com --novel-name "nine-star-hegemon" --novel-slug "nine-star-hegemon-body-arts" --start 1
+  
+  # CLI mode with end chapter only (will prompt for start)
+  python unified_scraper.py --website empirenovel.com --novel-name "nine-star-hegemon" --novel-slug "nine-star-hegemon-body-arts" --end 100
+        """
+    )
+    
+    parser.add_argument(
+        '--website',
+        type=str,
+        help='Website domain (e.g., empirenovel.com, boxnovel.com)'
+    )
+    
+    parser.add_argument(
+        '--novel-name',
+        type=str,
+        help='Novel name for saving files (will be used as directory name)'
+    )
+    
+    parser.add_argument(
+        '--novel-slug',
+        type=str,
+        help='Novel slug from URL (e.g., shadow-slave)'
+    )
+    
+    parser.add_argument(
+        '--start',
+        type=int,
+        default=None,
+        help='Starting chapter number (optional, will prompt if not provided)'
+    )
+    
+    parser.add_argument(
+        '--end',
+        type=int,
+        default=None,
+        help='Ending chapter number (optional, will prompt if not provided)'
+    )
+    
+    return parser.parse_args()
 
 
 def main():
