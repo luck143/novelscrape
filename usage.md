@@ -1,0 +1,425 @@
+# Unified File Combiner - Usage Examples
+
+This file contains practical examples of using the unified_combiner.py script
+for various common tasks in the NovelScrape workflow.
+
+## Table of Contents
+1. Interactive Mode
+2. Combine TXT Files
+3. Create EPUB Files
+4. Text Cleaning
+5. Advanced Usage
+6. Common Workflows
+
+---
+
+## 1. Interactive Mode
+
+### Basic Interactive Usage
+```bash
+python unified_combiner.py
+```
+
+This will prompt you through all options step by step.
+
+**Prompts you'll see:**
+- Select operation (Combine TXT or Create EPUB)
+- Enter novel name or path to chapter files
+- Select chapter marker format (for TXT combining)
+- Choose whether to clean text content
+- Enter output filename (optional)
+- Enter EPUB title and author (for EPUB creation)
+
+---
+
+## 2. Combine TXT Files
+
+### Basic Combine (auto-generated filename)
+```bash
+python unified_combiner.py --combine --input downloads/novelname
+```
+Output: `downloads/novelname_1234567890.txt`
+
+### Combine with Custom Output
+```bash
+python unified_combiner.py --combine --input downloads/novelname --output downloads/my_novel.txt
+```
+
+### Combine with Full Chapter Markers
+```bash
+python unified_combiner.py --combine --input downloads/novelname --marker full
+```
+Output format:
+```
+#Chapter 1 : 1
+[chapter content]
+
+#Chapter 2 : 2
+[chapter content]
+```
+
+### Combine with Simple Chapter Markers
+```bash
+python unified_combiner.py --combine --input downloads/novelname --marker simple
+```
+Output format:
+```
+#[chapter content]
+
+#[chapter content]
+```
+
+### Combine with No Chapter Markers
+```bash
+python unified_combiner.py --combine --input downloads/novelname --marker none
+```
+Output format:
+```
+[chapter content]
+
+[chapter content]
+```
+
+### Combine with Text Cleaning
+```bash
+python unified_combiner.py --combine --input downloads/novelname --clean
+```
+Removes:
+- Dots between letters (e.g., `T.h.e. y.o.u.n.g.` → `The young.`)
+- Multiple dots between letters (e.g., `a..b` → `ab`)
+- `.+` patterns from scraped content
+
+### Combine with All Options
+```bash
+python unified_combiner.py --combine \
+  --input downloads/novelname \
+  --output downloads/cleaned_novel.txt \
+  --marker full \
+  --clean
+```
+
+### Quiet Mode (no progress output)
+```bash
+python unified_combiner.py --combine --input downloads/novelname --quiet
+```
+
+---
+
+## 3. Create EPUB Files
+
+### Basic EPUB Creation (auto-generated filename)
+```bash
+python unified_combiner.py --epub --input downloads/novelname
+```
+Output: `downloads/novelname.epub`
+
+### Create EPUB with Custom Output
+```bash
+python unified_combiner.py --epub --input downloads/novelname --output my_novel.epub
+```
+
+### Create EPUB with Custom Metadata
+```bash
+python unified_combiner.py --epub \
+  --input downloads/novelname \
+  --output downloads/ninestar.epub \
+  --title "Nine Star Hegemon" \
+  --author "Mad Snail"
+```
+
+### Create EPUB with Text Cleaning
+```bash
+python unified_combiner.py --epub --input downloads/novelname --clean
+```
+Applies text cleaning to each chapter before creating EPUB.
+
+### Create EPUB with All Options
+```bash
+python unified_combiner.py --epub \
+  --input downloads/novelname \
+  --output downloads/cleaned_novel.epub \
+  --title "My Novel Title" \
+  --author "Author Name" \
+  --clean
+```
+
+### Quiet EPUB Creation
+```bash
+python unified_combiner.py --epub --input downloads/novelname --quiet
+```
+
+---
+
+## 4. Text Cleaning
+
+### When to Use Text Cleaning
+
+Use the `--clean` flag when:
+- Scraped content has dots between letters to evade bot detection
+- Text contains `.+` patterns from anti-bot measures
+- You want cleaner, more readable output
+
+### What Text Cleaning Removes
+
+**Examples:**
+```
+Before: "The. y.o.u.n.g. hero.+. fought bravely."
+After:  "The. young. hero fought bravely."
+
+Before: "F.u.c. y.o.u."
+After:  "Fuc you."
+
+Before: "a..b...c"
+After:  "abc"
+
+Before: "This is a test.+"
+After:  "This is a test"
+```
+
+### What Text Cleaning Preserves
+
+- Legitimate punctuation (periods at sentence endings)
+- Normal spacing and formatting
+- All other text content
+
+---
+
+## 5. Advanced Usage
+
+### Using Absolute Paths
+```bash
+python unified_combiner.py --combine --input "C:\Users\username\Downloads\novel_chapters" --output "C:\Users\username\Documents\novel.txt"
+```
+
+### Combining from Different Directory
+```bash
+python unified_combiner.py --combine --input "D:\MyNovels\Book1\chapters" --output "D:\MyNovels\Book1.txt"
+```
+
+### Batch Processing (Windows)
+```bash
+# Combine multiple novels
+for /d %i in (novel1 novel2 novel3) do (
+  python unified_combiner.py --combine --input downloads\%i --output downloads\%i_combined.txt
+)
+```
+
+### Batch Processing (Linux/Mac)
+```bash
+# Combine multiple novels
+for novel in novel1 novel2 novel3; do
+  python unified_combiner.py --combine --input downloads/$novel --output downloads/${novel}_combined.txt
+done
+```
+
+### Create EPUBs for Multiple Novels (Windows)
+```bash
+for /d %i in (novel1 novel2 novel3) do (
+  python unified_combiner.py --epub --input downloads\%i --output downloads\%i.epub --title "%i" --author "Various Authors"
+)
+```
+
+### Create EPUBs for Multiple Novels (Linux/Mac)
+```bash
+for novel in novel1 novel2 novel3; do
+  python unified_combiner.py --epub --input downloads/$novel --output downloads/${novel}.epub --title "$novel" --author "Various Authors"
+done
+```
+
+---
+
+## 6. Common Workflows
+
+### Workflow 1: Scrape and Create Cleaned EPUB
+
+```bash
+# Step 1: Scrape novel
+python unified_scraper.py
+
+# Step 2: Create cleaned EPUB directly
+python unified_combiner.py --epub \
+  --input downloads/novelname \
+  --output downloads/novelname_clean.epub \
+  --title "Novel Title" \
+  --author "Author Name" \
+  --clean
+```
+
+### Workflow 2: Scrape and Create EPUB Directly
+
+```bash
+# Step 1: Scrape novel
+python unified_scraper.py
+
+# Step 2: Create EPUB directly from chapter files
+python unified_combiner.py --epub \
+  --input downloads/novelname \
+  --output downloads/novelname.epub \
+  --title "Novel Title" \
+  --author "Author Name" \
+  --clean
+```
+
+**Note:** There's no need to combine chapters first. The unified combiner can create EPUBs directly from individual chapter files.
+
+### Workflow 3: Quick Test with Small Chapter Range
+
+```bash
+# Step 1: Scrape first 5 chapters for testing
+python unified_scraper.py
+# Select website, enter novel info, chapter range: 1-5
+
+# Step 2: Test combine with cleaning
+python unified_combiner.py --combine \
+  --input downloads/novelname \
+  --output downloads/test.txt \
+  --clean
+
+# Step 3: Review test.txt for quality
+# If satisfied, proceed with full download
+```
+
+### Workflow 4: Create Multiple Formats
+
+```bash
+# Step 1: Scrape novel
+python unified_scraper.py
+
+# Step 2: Create combined TXT (no markers)
+python unified_combiner.py --combine \
+  --input downloads/novelname \
+  --output downloads/novelname_raw.txt \
+  --marker none
+
+# Step 3: Create combined TXT (with markers)
+python unified_combiner.py --combine \
+  --input downloads/novelname \
+  --output downloads/novelname_marked.txt \
+  --marker full
+
+# Step 4: Create cleaned EPUB
+python unified_combiner.py --epub \
+  --input downloads/novelname \
+  --output downloads/novelname.epub \
+  --title "Novel Title" \
+  --author "Author Name" \
+  --clean
+```
+
+### Workflow 5: Resume and Clean Interrupted Download
+
+```bash
+# Step 1: Resume scraping from last chapter
+python unified_scraper.py
+# Enter same novel info, it will skip already downloaded chapters
+
+# Step 2: Combine all chapters with cleaning
+python unified_combiner.py --combine \
+  --input downloads/novelname \
+  --output downloads/novelname_final.txt \
+  --marker full \
+  --clean
+
+# Step 3: Create final EPUB
+python unified_combiner.py --epub \
+  --input downloads/novelname \
+  --output downloads/novelname_final.epub \
+  --title "Novel Title" \
+  --author "Author Name" \
+  --clean
+```
+
+---
+
+## Quick Reference
+
+### Command-Line Options
+
+| Option | Description | Example |
+|---------|-------------|----------|
+| `--combine` | Combine TXT files | `--combine` |
+| `--epub` | Create EPUB | `--epub` |
+| `--input` | Input directory | `--input downloads/novel` |
+| `--output` | Output file | `--output novel.txt` |
+| `--marker` | Chapter marker format | `--marker full` |
+| `--title` | EPUB title | `--title "My Novel"` |
+| `--author` | EPUB author | `--author "Author"` |
+| `--clean` | Clean text content | `--clean` |
+| `--quiet` | Suppress output | `--quiet` |
+
+### Chapter Marker Formats
+
+| Format | Description | Example |
+|---------|-------------|----------|
+| `full` | `#Chapter 1 : 1` | `--marker full` |
+| `simple` | `#` | `--marker simple` |
+| `none` | No marker | `--marker none` |
+
+### Common Issues and Solutions
+
+**Issue:** "No TXT files found"
+- **Solution:** Check that the input path is correct and contains `.txt` files
+
+**Issue:** "UTF-8 decoding failed"
+- **Solution:** The script automatically tries windows-1252 encoding, this is normal
+
+**Issue:** Files in wrong order
+- **Solution:** For TXT: files sorted by modification time. For EPUB: files sorted naturally (1, 2, 10)
+
+**Issue:** Text has dots between letters
+- **Solution:** Use `--clean` flag to remove formatting artifacts
+
+---
+
+## Tips
+
+1. **Always test with small chapter ranges first** before running full downloads
+2. **Use `--clean` flag** when scraped content has anti-bot obfuscation
+3. **Use `--marker full`** to verify chapter numbers in output
+4. **Use quiet mode** (`--quiet`) when running in scripts or automation
+5. **Check for captcha/limit messages** during scraping
+6. **Downloads are saved** to `downloads/{novelname}/` directory
+7. **Output files are timestamped** to avoid overwriting (unless specified)
+8. **EPUB files include** proper table of contents and navigation
+
+---
+
+## Migration from Old Scripts
+
+### Old Scripts (Deleted)
+- `1_combine2.py` → Use `--marker full` with `--combine`
+- `combine.py` → Use `--marker simple` with `--combine`
+- `combine_epub.py` → Use `--epub`
+- `wanderinginn/combine.py` → Use `--combine`
+- `clean_text_file.py` → Use `--clean` flag
+- `2_publish_epub.py` → Use `--epub` (creates EPUB directly from TXT files)
+- `2_publish_epub2.py` → Use `--epub` (creates EPUB directly from TXT files)
+
+### Migration Examples
+
+**Old:**
+```bash
+python combine.py
+# (had to edit script to set path)
+```
+
+**New:**
+```bash
+python unified_combiner.py --combine --input downloads/novelname
+```
+
+**Old:**
+```bash
+python clean_text_file.py downloads/novel.txt
+```
+
+**New:**
+```bash
+python unified_combiner.py --combine --input downloads/novelname --clean
+```
+
+---
+
+For more information, see:
+- README_UNIFIED_COMBINER.md - Complete documentation
+- unified_combiner.py --help - Command-line help
