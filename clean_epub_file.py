@@ -7,33 +7,7 @@ import tempfile
 from ebooklib import epub
 from ebooklib.epub import EpubHtml
 
-def clean_text_content(text):
-    """
-    Clean text content by removing extra dots between letters and .+ patterns.
-    
-    This function removes:
-    1. Dots that appear between letters (like f.u.c -> fuc)
-    2. .+ patterns that might appear in the text
-    
-    while preserving legitimate punctuation (periods at sentence endings, etc.).
-    """
-    # Pattern to match dots between letters
-    # This regex matches a dot between two letters (a.b, x.y, etc.)
-    pattern = r'([a-zA-Z])\.([a-zA-Z])'
-    
-    # Replace all occurrences with the letters without the dot
-    cleaned_text = re.sub(pattern, r'\1\2', text)
-    
-    # Also handle cases where there might be multiple dots between letters
-    # This will handle patterns like a..b, a...b, etc.
-    pattern_multiple = r'([a-zA-Z])\.+([a-zA-Z])'
-    cleaned_text = re.sub(pattern_multiple, r'\1\2', cleaned_text)
-    
-    # Remove .+ patterns that might appear in the text
-    pattern_dot_plus = r'\.\+'
-    cleaned_text = re.sub(pattern_dot_plus, '', cleaned_text)
-    
-    return cleaned_text
+from textutils import clean_text_content
 
 def clean_epub_file(input_epub):
     """

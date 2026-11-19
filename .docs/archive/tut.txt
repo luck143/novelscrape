@@ -1,0 +1,49 @@
+py -3.8
+py -3.12
+
+py -3.12 -m venv venv
+---------------
+
+python -m venv venv
+venv\Scripts\activate
+
+python -m pip install --upgrade pip
+
+pip install undetected_chromedriver
+pip install trafilatura
+pip install newspaper3k
+pip install unidecode
+pip install docopt
+
+chrome.exe -remote-debugging-port=9014 --user-data-dir="D:\Selenium\Chrome_test_profile"
+
+
+venv\Scripts\activate
+
+chrome version fix just put 
+driver = uc.Chrome(version_main=119)
+
+-----------------------------
+------------
+ to open chrome in debugging mode with port 
+ in cmd
+chrome.exe --remote-debugging-port=9222
+
+chrome.exe --remote-debugging-port=9222 --user-data-dir=D:\pypro\novelscrape\chromeprofile
+--------------------------------------
+
+
+https://github.com/seleniumbase/SeleniumBase/blob/master/help_docs/uc_mode.md
+
+
+pip install git+https://github.com/seleniumbase/SeleniumBase/releases/tag/v4.29.9
+
+-----------------
+
+uninstall sueless libraries in default python
+
+pip freeze > requirements.txt
+pip uninstall -r requirements.txt -y
+----------------------
+
+test both unified_combiner.py and unified_scraper.py for qucik mode. using  nine-star-hegemon-body-arts and empirenovel.com

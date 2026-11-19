@@ -44,6 +44,8 @@ NovelScrape currently supports the following websites:
 2. Install required dependencies:
 
 ```bash
+pip install -r requirements.txt
+# or individually:
 pip install selenium undetected-chromedriver trafilatura unidecode ebooklib
 ```
 
@@ -61,78 +63,85 @@ source venv/bin/activate  # Linux/Mac
 
 The project provides two main tools:
 
-#### 1. Unified Scraper (`unified_scraper.py`)
+#### 1. Unified Scraper (`scraper.py`)
 
 Download novel chapters from any supported website.
 
 **Interactive Mode:**
 ```bash
-python unified_scraper.py
+python scraper.py
 ```
 
 **Quick Mode:**
-Edit the configuration at the top of `unified_scraper.py`:
-```python
-QUICK_MODE = True
-website = 'empirenovel.com'
-novel_name = 'nine-star-hegemon-body-arts'
-novel_slug = 'nine-star-hegemon-body-arts'
-start_chapter = 1
-end_chapter = 10
+Create `quick_config.json` in the project root:
+```json
+{
+  "website": "empirenovel.com",
+  "novel_name": "nine-star-hegemon-body-arts",
+  "novel_slug": "nine-star-hegemon-body-arts",
+  "start_chapter": 1,
+  "end_chapter": 10
+}
 ```
 
 Then run:
 ```bash
-python unified_scraper.py
+python scraper.py
 ```
 
-#### 2. Unified Combiner (`unified_combiner.py`)
+**CLI Mode:**
+```bash
+python scraper.py --website empirenovel.com --novel-name nine-star-hegemon-body-arts --novel-slug nine-star-hegemon-body-arts --start 1 --end 10
+```
+
+#### 2. Unified Combiner (`combiner.py`)
 
 Combine downloaded chapters into a single TXT file or create an EPUB.
 
 **Interactive Mode:**
 ```bash
-python unified_combiner.py
+python combiner.py
 ```
 
 **Quick Mode:**
-Edit the configuration at the top of `unified_combiner.py`:
-```python
-QUICK_MODE = True
-operation = 'epub'  # or 'combine'
-input_path = 'downloads/nine-star-hegemon-body-arts'
-output_path = 'downloads/nine-star-hegemon-body-arts.epub'
-clean_text = False
+Create `quick_combiner_config.json` in the project root:
+```json
+{
+  "operation": "epub",
+  "input_path": "downloads/nine-star-hegemon-body-arts",
+  "output_path": "downloads/epub/nine-star-hegemon-body-arts.epub",
+  "clean_text": true
+}
 ```
 
 Then run:
 ```bash
-python unified_combiner.py
+python combiner.py
 ```
 
 **CLI Examples:**
 ```bash
 # Combine TXT files
-python unified_combiner.py --combine --input downloads/novelname --output combined.txt
+python combiner.py --combine --input downloads/novelname --output combined.txt
 
 # Create EPUB
-python unified_combiner.py --epub --input downloads/novelname --output novel.epub --title "My Novel" --author "Author"
+python combiner.py --epub --input downloads/novelname --title "My Novel" --author "Author"
 
 # Combine with text cleaning
-python unified_combiner.py --combine --input downloads/novelname --clean
+python combiner.py --combine --input downloads/novelname --clean
 ```
 
 ### Common Workflow
 
 1. **Download Chapters:**
    ```bash
-   python unified_scraper.py
+   python scraper.py
    # Select website, enter novel name, slug, and chapter range
    ```
 
 2. **Create EPUB:**
    ```bash
-   python unified_combiner.py --epub --input downloads/novelname --clean
+   python combiner.py --epub --input downloads/novelname --clean
    ```
 
 3. **Enjoy Reading:**
@@ -141,10 +150,10 @@ python unified_combiner.py --combine --input downloads/novelname --clean
 
 ### Text Cleaning
 
-Some websites use anti-bot measures that add dots between letters. Use the `--clean` flag to remove these:
+Some websites use anti-bot measures that add dots between letters. Use the `--clean` flag to remove these patterns (via `textutils.py` — normal punctuation like `e.g` and sentence periods is preserved):
 
 ```bash
-python unified_combiner.py --epub --input downloads/novelname --clean
+python combiner.py --epub --input downloads/novelname --clean
 ```
 
 This removes patterns like:
@@ -156,14 +165,28 @@ This removes patterns like:
 
 ```
 novelscrape/
-├── unified_scraper.py          # Main scraper for all websites
-├── unified_combiner.py         # Combine chapters or create EPUB
-├── scraper_configs.json         # Website configurations
-├── clean_epub_file.py         # EPUB cleaning utility
-├── downloads/                 # Downloaded chapters (gitignored)
-├── webdriver/                 # Chrome driver executables
-└── README.md                 # This file
+├── scraper.py                  # Main scraper for all websites
+├── combiner.py                 # Combine chapters or create EPUB (EPUBs → downloads/epub/)
+├── textutils.py                # Shared text-cleaning helpers
+├── scraper_configs.json        # Website configurations
+├── quick_config.json           # Quick-mode settings for scraper.py
+├── quick_combiner_config.json  # Quick-mode settings for combiner.py
+├── requirements.txt            # Dependencies
+├── clean_epub_file.py          # EPUB cleaning utility
+├── clean_scraped_files.py      # Remove 'Comments' sections from files
+├── run_scraper.bat             # Quick run scraper (Windows)
+├── run_combiner.bat            # Quick run combiner (Windows)
+├── AGENTS.md                   # Conventions for coding agents
+├── .docs/                      # Documentation (usage.md, add-a-website.md, archive/)
+├── backups/                    # Frozen historical scripts — never import
+├── chromeprofile/              # Persistent Chrome profile (gitignored)
+├── downloads/                  # Raw chapters: downloads/<novel>/N.txt (gitignored)
+│   └── epub/                   # Generated EPUB outputs (gitignored)
+└── venv/                       # Python virtual environment (gitignored)
 ```
+
+> **Note**: Old documentation lives in `.docs/archive/`. Current docs: this README,
+> `AGENTS.md`, `.docs/README.md`, `.docs/add-a-website.md`, `.docs/usage.md`.
 
 ## Configuration
 
@@ -178,17 +201,20 @@ Website configurations are stored in `scraper_configs.json`. Each website includ
 - `delay`: Additional delay after page load
 - `headless`: Run Chrome in headless mode
 - `chrome_version`: Specific Chrome version (if needed)
-- `captcha_detection`: Enable captcha detection
-- `use_next_link`: Check for next chapter link
+- `captcha_detection`: Enable captcha detection (stops the whole run when triggered)
+- `use_next_link`: Follow the page's next-chapter link instead of building URLs
 - `use_standard_chrome`: Use standard Chrome (for some websites)
+- `content_selector`: Optional CSS selector for the chapter text container (used when
+  full-page extraction picks up menus/ads)
 
 ### Quick Mode Configuration
 
-Both `unified_scraper.py` and `unified_combiner.py` support quick mode:
+Both `scraper.py` and `combiner.py` support quick mode via JSON files in the project root:
 
-1. Set `QUICK_MODE = True` at the top of the file
-2. Edit the configuration variables
-3. Run the script without arguments
+1. `scraper.py` → `quick_config.json`
+2. `combiner.py` → `quick_combiner_config.json`
+3. Run the script without arguments and the JSON is used automatically
+4. Without the JSON file (or with CLI arguments), you get interactive/CLI mode
 
 ## Troubleshooting
 
@@ -197,7 +223,7 @@ Both `unified_scraper.py` and `unified_combiner.py` support quick mode:
 If you get a Chrome driver error:
 
 ```python
-# In unified_scraper.py or specific scraper:
+# In scraper.py or specific scraper:
 driver = uc.Chrome(version_main=127)  # Set to your Chrome version
 ```
 
@@ -213,31 +239,20 @@ If detected, wait or use a different approach.
 
 ### Files in Wrong Order
 
-- **TXT combining**: Files sorted by modification time
-- **EPUB creation**: Files sorted naturally (1, 2, 10, etc.)
+- Both TXT combining and EPUB creation sort files **naturally** (1, 2, 10, etc.) in the
+  same order — see `get_txt_files()` in `combiner.py`.
 
 ## Advanced Usage
 
 For detailed usage examples and advanced features, see:
-- [`usage.md`](usage.md) - Comprehensive usage guide
+- [`.docs/usage.md`](.docs/usage.md) - Comprehensive usage guide
+- [`.docs/add-a-website.md`](.docs/add-a-website.md) - How to add a new website
 
-## Specialized Scripts
+## Memory Bank (Not Implemented)
 
-The project includes specialized scripts for specific websites:
-
-- **wanderinginn/** - Scripts for wanderinginn.com (not supported by unified scraper)
-  - `dummy.py` - Custom scraper
-  - `toepub.py` - Custom EPUB creator
-
-## Memory Bank (Planned Feature)
-
-A memory bank system is planned to enable:
-- Progress tracking across sessions
-- Resume from last downloaded chapter
-- Prevent duplicate downloads
-- Status management (downloading, paused, completed, error)
-
-Reference implementation: [`ninestar_scraper_with_memory.py`](ninestar_scraper_with_memory.py)
+A memory bank system was explored but never completed; the scraper's built-in resume
+(skip existing chapter files) covers the practical need. Historical reference code lives
+in `backups/` (`ninestar_scraper_with_memory.py`, `memory_bank.py`, `memory_bank_cli.py`).
 
 ## Legal Notice
 
@@ -261,7 +276,7 @@ This project is provided as-is for educational and personal use.
 ## Support
 
 For issues, questions, or suggestions:
-- Review `usage.md` for detailed examples
+- Review [`.docs/usage.md`](.docs/usage.md) for detailed examples
 - Test with small chapter ranges first
 
 ---

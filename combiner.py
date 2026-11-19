@@ -7,41 +7,15 @@ Supports multiple chapter marker formats and provides a CLI interface.
 
 # ============================================================================
 # QUICK MODE CONFIGURATION
-# Set these values to skip interactive prompts
-# Set QUICK_MODE = False to use interactive mode
+# Moved out of source code: create quick_combiner_config.json in the project
+# root and it is used automatically when combiner.py runs with no CLI args.
+# Keys: operation ('combine'|'epub'), input_path, output_path (optional),
+#   chapter_marker ('full'|'simple'|'none'), clean_text (bool),
+#   start_chapter / end_chapter (optional), epub_title, epub_author, quiet (bool)
+# Delete/rename the file to always get interactive prompts.
 # ============================================================================
 
-# Test URL for reference (empirenovel.com - Nine Star Hegemon Body Arts)
-TEST_URL = "https://www.empirenovel.com/novel/nine-star-hegemon-body-arts/"
-
-QUICK_MODE = True  # Set to False to use interactive mode
-
-# Configuration for TXT combining (used when operation = 'combine')
-# operation: 'combine' or 'epub'
-operation = 'epub'  # Change to 'epub' to create EPUB instead
-
-# Input path to chapter files (can be relative or absolute)
-input_path = 'downloads/nine-star-hegemon-body-arts'  # Change this to your novel's directory
-
-# Output file path (optional - will be auto-generated if empty)
-output_path = 'downloads/nine-star-hegemon-body-arts.epub'  # e.g., 'downloads/combined.txt' or 'downloads/novel.epub'
-
-# Chapter marker format (for TXT combining): 'full', 'simple', or 'none'
-chapter_marker = 'full'  # Options: 'full', 'simple', 'none'
-
-# Clean text content (removes dots between letters, .+ patterns)
-clean_text = True  # Set to True to enable cleaning
-
-# Chapter range (optional - set to None to include all chapters)
-start_chapter = None  # Starting chapter number (e.g., 1)
-end_chapter = None  # Ending chapter number (e.g., 100)
-
-# EPUB metadata (used when operation = 'epub')
-epub_title = 'Nine Star Hegemon Body Arts'  # Title for EPUB
-epub_author = 'Unknown'  # Author for EPUB
-
-# Suppress progress output
-quiet = False  # Set to True to suppress progress messages
+QUICK_CONFIG_FILE = 'quick_combiner_config.json'
 
 # ============================================================================
 
@@ -49,57 +23,60 @@ import os
 import sys
 import glob
 import time
+import json
 import re
 import argparse
+
+from textutils import clean_text_content as _clean_text_content
 from ebooklib import epub
 
 
-def clean_text_content(content):
+def extract_chapter_title(text_content, filename):
     """
-    Clean text content by removing extra dots between letters, .+ patterns, and whitespace issues.
-    
-    This function removes:
-    1. Dots that appear between letters (like f.u.c -> fuc)
-    2. .+ patterns that might appear in the text
-    3. Extra whitespace (multiple spaces, leading/trailing spaces on lines)
-    4. Excessive blank lines (more than 2 consecutive newlines)
-    
-    while preserving legitimate punctuation (periods at sentence endings, etc.).
+    Extract chapter title from the first or second line of text content.
     
     Args:
-        content: The text content to clean
+        text_content: The full text content of the chapter
+        filename: The filename (used as fallback)
         
     Returns:
-        The cleaned text content
+        A tuple of (display_title, sort_title) where:
+        - display_title: The title to show in EPUB (e.g., "Chapter 100: What Do You Mean By That?")
+        - sort_title: The title used for sorting (e.g., "Chapter 100")
     """
-    # Pattern to match dots between letters
-    # This regex matches a dot between two letters (a.b, x.y, etc.)
-    pattern = r'([a-zA-Z])\.([a-zA-Z])'
+    lines = text_content.strip().split('\n')
     
-    # Replace all occurrences with the letters without the dot
-    cleaned_content = re.sub(pattern, r'\1\2', content)
+    # Check first line for chapter title
+    if lines:
+        first_line = lines[0].strip()
+        # Check if first line looks like a chapter title
+        # Patterns: "Chapter X", "Chapter X:", "Chapter X: Title", etc.
+        if re.match(r'^Chapter\s+\d+', first_line, re.IGNORECASE):
+            # Use the full first line as display title
+            display_title = first_line
+            # Extract just "Chapter X" for sort title
+            match = re.match(r'^(Chapter\s+\d+)', first_line, re.IGNORECASE)
+            sort_title = match.group(1) if match else first_line
+            return display_title, sort_title
     
-    # Also handle cases where there might be multiple dots between letters
-    # This will handle patterns like a..b, a...b, etc.
-    pattern_multiple = r'([a-zA-Z])\.+([a-zA-Z])'
-    cleaned_content = re.sub(pattern_multiple, r'\1\2', cleaned_content)
+    # Check second line if first line didn't match
+    if len(lines) > 1:
+        second_line = lines[1].strip()
+        if re.match(r'^Chapter\s+\d+', second_line, re.IGNORECASE):
+            display_title = second_line
+            match = re.match(r'^(Chapter\s+\d+)', second_line, re.IGNORECASE)
+            sort_title = match.group(1) if match else second_line
+            return display_title, sort_title
     
-    # Remove .+ patterns that might appear in the text
-    pattern_dot_plus = r'\.\+'
-    cleaned_content = re.sub(pattern_dot_plus, '', cleaned_content)
-    
-    # Remove multiple consecutive spaces
-    cleaned_content = re.sub(r' +', ' ', cleaned_content)
-    
-    # Remove leading/trailing whitespace from each line
-    lines = cleaned_content.split('\n')
-    lines = [line.strip() for line in lines]
-    cleaned_content = '\n'.join(lines)
-    
-    # Remove excessive blank lines (more than 2 consecutive newlines)
-    cleaned_content = re.sub(r'\n\n\n+', '\n\n', cleaned_content)
-    
-    return cleaned_content
+    # Fallback to filename without extension
+    fallback = filename.replace('.txt', '')
+    return fallback, fallback
+
+
+def clean_text_content(content):
+    """Deprecated wrapper kept for backward compatibility.
+    Real implementation lives in textutils.py (single source of truth)."""
+    return _clean_text_content(content)
 
 
 def sort_naturally(files):
@@ -111,7 +88,9 @@ def sort_naturally(files):
             return value
 
     def alphanumeric_key(file_name):
-        return [try_int(c) for c in re.split(r'(\d+)', file_name)]
+        # Type-tag each part so int/str never compare directly
+        # (mixed list comparison raises TypeError in Python 3)
+        return [(0, int(c)) if c.isdigit() else (1, c) for c in re.split(r'(\d+)', file_name)]
 
     return sorted(files, key=alphanumeric_key)
 
@@ -188,7 +167,7 @@ def combine_to_txt(input_path, output_path, chapter_marker='full', clean=False, 
             range_str = f" (chapters {start_chapter if start_chapter else 'start'} to {end_chapter if end_chapter else 'end'})"
             print(f"Filtering by chapter range{range_str}")
     
-    files = get_txt_files(input_path, sort_method='mtime', start_chapter=start_chapter, end_chapter=end_chapter)
+    files = get_txt_files(input_path, sort_method='natural', start_chapter=start_chapter, end_chapter=end_chapter)
     
     if not files:
         print("No TXT files found in the specified directory!")
@@ -255,30 +234,13 @@ def txt_to_epub(folder_path, epub_file, title="Untitled", author="Unknown", clea
     book.add_metadata('DC', 'title', title)
     book.add_metadata('DC', 'creator', author)
     
-    # List all txt files in the folder
-    txt_files = [f for f in os.listdir(folder_path) if f.endswith('.txt')]
-    
-    # Sort the files naturally (numerically and alphabetically)
-    txt_files = sort_naturally(txt_files)
-    
-    # Filter by chapter range if specified
-    if start_chapter is not None or end_chapter is not None:
-        filtered_files = []
-        for filename in txt_files:
-            # Extract chapter number from filename
-            match = re.search(r'\d+', filename)
-            if match:
-                chapter_num = int(match.group())
-                
-                # Check if chapter is within range
-                if start_chapter is not None and chapter_num < start_chapter:
-                    continue
-                if end_chapter is not None and chapter_num > end_chapter:
-                    continue
-                
-                filtered_files.append(filename)
-        
-        txt_files = filtered_files
+    # List all txt files — same helper as combine_to_txt so TXT and EPUB
+    # always see chapters in the same order (natural sort).
+    txt_files = [
+        os.path.basename(f)
+        for f in get_txt_files(folder_path, sort_method='natural',
+                               start_chapter=start_chapter, end_chapter=end_chapter)
+    ]
     
     if not txt_files:
         print("No TXT files found in the specified directory!")
@@ -312,12 +274,12 @@ def txt_to_epub(folder_path, epub_file, title="Untitled", author="Unknown", clea
         if clean:
             text_content = clean_text_content(text_content)
         
-        # Create a chapter title based on the filename
-        chapter_title = txt_file.replace('.txt', '')
+        # Extract chapter title from the text content (first or second line)
+        display_title, sort_title = extract_chapter_title(text_content, txt_file)
         
-        # Create a new chapter
+        # Create a new chapter with the extracted title
         chapter_html = epub.EpubHtml(
-            title=chapter_title,
+            title=display_title,
             file_name=f"chapter{idx}.xhtml",
             lang="en"
         )
@@ -334,7 +296,7 @@ def txt_to_epub(folder_path, epub_file, title="Untitled", author="Unknown", clea
             <p>{}</p>
         </body>
         </html>
-        """.format(chapter_title, chapter_title, text_content.replace('\n', '<br/>'))
+        """.format(display_title, display_title, text_content.replace('\n', '<br/>'))
         
         # Set the content of the chapter
         chapter_html.content = html_content
@@ -437,6 +399,7 @@ def interactive_mode():
             output_name += '.txt'
         
         output_path = os.path.join(os.getcwd(), 'downloads', output_name)
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
         # Combine files
         success = combine_to_txt(input_path, output_path, chapter_marker=chapter_marker, clean=clean, start_chapter=start_chapter, end_chapter=end_chapter)
@@ -470,7 +433,10 @@ def interactive_mode():
         if not output_name.endswith('.epub'):
             output_name += '.epub'
         
-        output_path = os.path.join(os.getcwd(), 'downloads', output_name)
+        # EPUBs go to downloads/epub/ to keep generated outputs
+        # separate from raw chapter directories
+        output_path = os.path.join(os.getcwd(), 'downloads', 'epub', output_name)
+        os.makedirs(os.path.dirname(output_path), exist_ok=True)
         
         # Create EPUB
         success = txt_to_epub(input_path, output_path, title=title, author=author, clean=clean, start_chapter=start_chapter, end_chapter=end_chapter)
@@ -482,6 +448,18 @@ def interactive_mode():
             sys.exit(1)
 
 
+def load_quick_config():
+    """Load quick-mode settings from quick_combiner_config.json, or None if absent."""
+    if not os.path.exists(QUICK_CONFIG_FILE):
+        return None
+    try:
+        with open(QUICK_CONFIG_FILE, 'r', encoding='utf-8') as f:
+            return json.load(f)
+    except json.JSONDecodeError as e:
+        print(f"Error: Invalid {QUICK_CONFIG_FILE}: {e}")
+        sys.exit(1)
+
+
 def main():
     """Main entry point for the unified combiner."""
     parser = argparse.ArgumentParser(
@@ -489,29 +467,29 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Interactive mode (no arguments)
-  python unified_combiner.py
+  # Interactive mode (no arguments, no quick_combiner_config.json)
+  python combiner.py
   
-  # Quick mode (set QUICK_MODE = True at top of file)
-  python unified_combiner.py
+  # Quick mode (uses quick_combiner_config.json in the project root)
+  python combiner.py
   
   # Combine TXT files with full chapter markers
-  python unified_combiner.py --combine --input downloads/novelname --output downloads/combined.txt --marker full
+  python combiner.py --combine --input downloads/novelname --output downloads/combined.txt --marker full
   
-  # Create EPUB from TXT files
-  python unified_combiner.py --epub --input downloads/novelname --output novel.epub --title "My Novel" --author "Author Name"
+  # Create EPUB from TXT files (auto-saved to downloads/epub/)
+  python combiner.py --epub --input downloads/novelname --title "My Novel" --author "Author Name"
   
   # Combine with simple markers
-  python unified_combiner.py --combine --input downloads/novelname --marker simple
+  python combiner.py --combine --input downloads/novelname --marker simple
   
   # Combine only chapters 1-100
-  python unified_combiner.py --combine --input downloads/novelname --start 1 --end 100
+  python combiner.py --combine --input downloads/novelname --start 1 --end 100
   
   # Create EPUB from chapters 50-150
-  python unified_combiner.py --epub --input downloads/novelname --start 50 --end 150
+  python combiner.py --epub --input downloads/novelname --start 50 --end 150
   
   # Combine from chapter 100 to end
-  python unified_combiner.py --combine --input downloads/novelname --start 100
+  python combiner.py --combine --input downloads/novelname --start 100
         """
     )
     
@@ -589,13 +567,29 @@ Examples:
     
     args = parser.parse_args()
     
-    # Check if we should use QUICK_MODE (no CLI arguments and QUICK_MODE is True)
-    if len(sys.argv) == 1 and QUICK_MODE:
-        # Use configuration from top of file
+    # Check if we should use quick config (no CLI arguments and JSON present)
+    quick_cfg = load_quick_config() if len(sys.argv) == 1 else None
+    if quick_cfg:
+        # Use configuration from quick_combiner_config.json
+        operation = quick_cfg.get('operation', 'combine')
+        input_path = quick_cfg.get('input_path', '')
+        output_path = quick_cfg.get('output_path') or None
+        chapter_marker = quick_cfg.get('chapter_marker', 'full')
+        clean_text = bool(quick_cfg.get('clean_text', False))
+        start_chapter = quick_cfg.get('start_chapter')
+        end_chapter = quick_cfg.get('end_chapter')
+        epub_title = quick_cfg.get('epub_title', 'Untitled')
+        epub_author = quick_cfg.get('epub_author', 'Unknown')
+        quiet = bool(quick_cfg.get('quiet', False))
+
+        if not input_path:
+            print(f"Error: {QUICK_CONFIG_FILE} must set 'input_path'")
+            sys.exit(1)
+
         print("=" * 60)
         print("Unified File Combiner - Quick Mode")
         print("=" * 60)
-        print(f"Using configuration from file:")
+        print(f"Using configuration from {QUICK_CONFIG_FILE}:")
         print(f"  Operation: {operation}")
         print(f"  Input: {input_path}")
         print(f"  Output: {output_path if output_path else 'Auto-generated'}")
@@ -618,7 +612,7 @@ Examples:
         args.author = epub_author
         args.quiet = quiet
     elif len(sys.argv) == 1:
-        # No arguments and QUICK_MODE is False, run interactive mode
+        # No arguments and no quick config, run interactive mode
         interactive_mode()
         return
     
@@ -654,6 +648,7 @@ Examples:
                 'downloads',
                 f"{novel_name}_{timestamp}.txt"
             )
+        os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
         
         # Validate chapter range
         if args.start is not None and args.end is not None and args.start > args.end:
@@ -674,14 +669,19 @@ Examples:
             sys.exit(1)
     
     elif args.epub:
-        # Generate output filename if not provided
+        # Generate output filename if not provided;
+        # EPUBs go to downloads/epub/ (kept separate from raw chapters)
         if not args.output:
             novel_name = os.path.basename(os.path.normpath(args.input))
             args.output = os.path.join(
                 os.getcwd(),
-                'downloads',
+                'downloads', 'epub',
                 f"{novel_name}.epub"
             )
+        elif not os.path.dirname(args.output):
+            # Bare filename given → route into downloads/epub/
+            args.output = os.path.join('downloads', 'epub', args.output)
+        os.makedirs(os.path.dirname(os.path.abspath(args.output)), exist_ok=True)
         
         # Validate chapter range
         if args.start is not None and args.end is not None and args.start > args.end:

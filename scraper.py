@@ -7,21 +7,21 @@ novel hosting websites. It consolidates the functionality of all individual
 scraper scripts into a single, user-friendly CLI tool.
 
 Supported Websites:
-- boxnovel.com
-- novelfull.com
+- boxnovel.com dead
+- novelfull.com     
 - empirenovel.com
-- lightnovelworld.co
-- novelbin.com
+- lightnovelworld.co https://readnovelfull.com/
+- novelbin.com 
 - novelontop.com
 - novlove.com
 - readlightnovel.meme
 - wuxiaworld.com
 - wuxiaz.com
 - novelhi.com
-- freewebnovel.com
+- freewebnovel.com good
 
 Usage:
-    python unified_scraper.py
+    python scraper.py
 
 Author: NovelScrape Project
 Date: 2026-01-01
@@ -29,26 +29,20 @@ Date: 2026-01-01
 
 # ============================================================================
 # QUICK MODE CONFIGURATION
-# Set these values to skip interactive prompts
-# Set QUICK_MODE = False to use interactive mode
+# Moved out of source code: create quick_config.json in the project root and
+# it is used automatically when scraper.py runs with no CLI arguments.
+# Example (see quick_config.json):
+# {
+#   "website": "freewebnovel.com",
+#   "novel_name": "eternal-cultivation-of-alchemy",
+#   "novel_slug": "eternal-cultivation-of-alchemy",
+#   "start_chapter": 3752,
+#   "end_chapter": 3774
+# }
+# Delete/rename quick_config.json to always get interactive prompts.
 # ============================================================================
 
-QUICK_MODE = True  # Set to False to use interactive mode
-
-# Test URL for reference
-TEST_URL = "https://www.empirenovel.com/novel/nine-star-hegemon-body-arts/"
-
-# Website configuration (must match a key in scraper_configs.json)
-# Examples: 'boxnovel.com', 'novelfull.com', 'wuxiaworld.com', etc.
-website = 'empirenovel.com'  # Change this to your desired website
-
-# Novel configuration
-novel_name = 'nine-star-hegemon-body-arts'  # Name for saving files (will be used as directory name)
-novel_slug = 'nine-star-hegemon-body-arts'  # Slug from URL (e.g., 'shadow-slave' from URL like boxnovel.com/novel/shadow-slave)
-
-# Chapter range (optional - will be prompted if not provided in CLI mode)
-start_chapter = 1  # Starting chapter number (e.g., 1)
-end_chapter = 10  # Ending chapter number (e.g., 100)
+QUICK_CONFIG_FILE = 'quick_config.json'
 
 # ============================================================================
 
@@ -68,8 +62,9 @@ import argparse
 
 # Set UTF-8 encoding for Windows console
 if sys.platform == 'win32':
-    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
-    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
+    # 'replace' so one odd glyph can never crash a long scrape
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'replace')
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'replace')
 
 
 # ============================================================================
@@ -153,11 +148,21 @@ class UnifiedScraper:
         self.failed_count = 0
         self.failed_chapters = []
         self.successful_chapters = []
+        # Set when captcha/rate-limit is detected: stops the whole range
+        self.stop_requested = False
+        # Next-chapter URL when config uses use_next_link (see scrape_chapter)
+        self.next_url = None
     
     def initialize_driver(self):
         """Initialize Chrome driver with appropriate configuration"""
         try:
             options = webdriver.ChromeOptions()
+            
+            # Set page load timeout to 20 seconds
+            options.page_load_timeout = 20
+            
+            # Set script timeout to 30 seconds
+            options.set_capability('pageLoadStrategy', 'normal')
             
             # Check if website uses standard Chrome (lightnovelworld.co)
             if self.config.get('use_standard_chrome', False):
@@ -191,7 +196,35 @@ class UnifiedScraper:
                         version_main=self.config['chrome_version']
                     )
                 else:
-                    self.driver = uc.Chrome(use_subprocess=True, options=options)
+                    # Let undetected_chromedriver auto-detect the Chrome version
+                    # First, try to detect the actual Chrome version installed
+                    import subprocess
+                    try:
+                        # Try to get Chrome version on Windows
+                        result = subprocess.run(
+                            ['reg', 'query', 'HKEY_CURRENT_USER\\Software\\Google\\Chrome\\BLBeacon', '/v', 'version'],
+                            capture_output=True, text=True, timeout=5
+                        )
+                        if result.returncode == 0:
+                            # Parse version from output (e.g., "145.0.7632.116")
+                            version_line = [line for line in result.stdout.split('\n') if 'version' in line.lower()]
+                            if version_line:
+                                version_str = version_line[0].split()[-1]
+                                chrome_version = int(version_str.split('.')[0])
+                                print(f"  Detected Chrome version: {chrome_version}")
+                                self.driver = uc.Chrome(
+                                    use_subprocess=True, 
+                                    options=options,
+                                    version_main=chrome_version
+                                )
+                            else:
+                                raise Exception("Could not parse Chrome version")
+                        else:
+                            raise Exception("Could not detect Chrome version from registry")
+                    except Exception as detect_error:
+                        print(f"  Auto-detection failed: {detect_error}")
+                        print(f"  Trying with default settings...")
+                        self.driver = uc.Chrome(use_subprocess=True, options=options)
             
             print(f"✓ Chrome driver initialized for {self.config['name']}")
             return True
@@ -250,6 +283,17 @@ class UnifiedScraper:
             Extracted text content
         """
         content = self.driver.page_source
+
+        # Per-site CSS selector (config 'content_selector'): extract only the
+        # chapter container when trafilatura on the full page picks up menus/ads.
+        selector = self.config.get('content_selector')
+        if selector:
+            try:
+                el = self.driver.find_element(By.CSS_SELECTOR, selector)
+                content = el.get_attribute('innerHTML')
+            except Exception:
+                pass  # fall back to full page_source
+
         text = trafilatura.extract(content)
         return unidecode(text) if text else ""
     
@@ -277,6 +321,7 @@ class UnifiedScraper:
                     print(f"✗ Captcha detected!")
                 else:
                     print(f"✗ Rate limit reached!")
+                self.stop_requested = True
                 return True
         
         return False
@@ -304,6 +349,55 @@ class UnifiedScraper:
             print(f"  ✗ Error saving chapter {chapter_num}: {e}")
             return False
     
+    def check_404_page(self):
+        """
+        Check if current page is a 404 error page
+        
+        Returns:
+            True if 404 detected, False otherwise
+        """
+        try:
+            # Check page title for 404 indicators
+            title = self.driver.title.lower()
+            
+            # Only check title for 404 indicators (more reliable)
+            # Many pages have "404" in JS code which causes false positives
+            title_error_indicators = [
+                '404', 'not found', 'page not found', 
+                'error 404', 'chapter not found',
+                'this chapter does not exist',
+                'content not available'
+            ]
+            
+            for indicator in title_error_indicators:
+                if indicator in title:
+                    return True
+            
+            # Check for specific 404 page elements (more reliable than raw text search)
+            page_source = self.driver.page_source.lower()
+            
+            # Look for common 404 page patterns in headings
+            specific_404_patterns = [
+                '<h1>404</h1>',
+                '<h2>404</h2>',
+                '<title>404',
+                'class="error-404"',
+                'class="error404"',
+                'id="error-404"',
+                '>404 - page not found<',
+                '>page not found<',
+                '>chapter not found<',
+                'this chapter does not exist',
+            ]
+            
+            for pattern in specific_404_patterns:
+                if pattern in page_source:
+                    return True
+            
+            return False
+        except Exception:
+            return False
+    
     def scrape_chapter(self, chapter_num, max_retries=2):
         """
         Scrape a single chapter
@@ -317,22 +411,49 @@ class UnifiedScraper:
         """
         # Check if chapter already exists (resume functionality)
         filepath = os.path.join(self.download_dir, f"{chapter_num}.txt")
-        if os.path.exists(filepath):
+        # Resume check: file must exist AND be non-trivial (>200 bytes) so a
+        # file truncated by a crash is re-scraped instead of skipped forever.
+        if os.path.exists(filepath) and os.path.getsize(filepath) > 200:
             print(f"  ✓ Chapter {chapter_num} already exists, skipping")
             return True
-        
-        url = self.build_url(chapter_num)
+
+        # If the site config uses next-link navigation and we already have a
+        # next URL from the previous chapter, follow it instead of guessing.
+        use_next_link = self.config.get('use_next_link', False)
+        if use_next_link and self.next_url:
+            url = self.next_url
+        else:
+            url = self.build_url(chapter_num)
         
         for attempt in range(max_retries + 1):
             if attempt > 0:
                 print(f"  Retry {attempt}/{max_retries} for chapter {chapter_num}")
             
             try:
-                # Navigate to URL
-                self.driver.get(url)
+                # Navigate to URL with timeout handling
+                try:
+                    self.driver.set_page_load_timeout(20)
+                    self.driver.get(url)
+                except Exception as timeout_error:
+                    # Handle page load timeout
+                    print(f"  ✗ Page load timeout for chapter {chapter_num}")
+                    if attempt < max_retries:
+                        time.sleep(2)
+                        continue
+                    return False
+                
+                # Check for 404 page immediately after load
+                if self.check_404_page():
+                    print(f"  ✗ Chapter {chapter_num} not found (404)")
+                    return False
                 
                 # Wait for page load
                 self.wait_for_page_load()
+                
+                # Check for 404 again after wait (some sites redirect to 404)
+                if self.check_404_page():
+                    print(f"  ✗ Chapter {chapter_num} not found (404)")
+                    return False
                 
                 # Extract content
                 text = self.extract_content()
@@ -350,17 +471,21 @@ class UnifiedScraper:
                         continue
                     return False
                 
-                # Check for next link if use_next_link is enabled
-                if self.config.get('use_next_link', False):
+                # Check for next link if use_next_link is enabled:
+                # verify it exists AND remember its href so the NEXT chapter
+                # is fetched via this link, not via the URL pattern.
+                if use_next_link:
                     try:
                         selector = self.config['wait_selector']
                         next_element = self.driver.find_element(By.ID, selector)
-                        if not next_element or not next_element.get_attribute('href'):
+                        href = next_element.get_attribute('href') if next_element else None
+                        if not href:
                             print(f"  ✗ Next link not found (possible captcha)")
                             if attempt < max_retries:
                                 time.sleep(2)
                                 continue
                             return False
+                        self.next_url = href
                     except Exception as e:
                         print(f"  ✗ Error checking next link: {e}")
                         if attempt < max_retries:
@@ -368,7 +493,6 @@ class UnifiedScraper:
                             continue
                         return False
                 
-                # Save chapter
                 if self.save_chapter(chapter_num, text):
                     print(f"  ✓ Chapter {chapter_num} downloaded successfully")
                     return True
@@ -409,6 +533,12 @@ class UnifiedScraper:
             # Scrape each chapter
             total_chapters = self.end_chapter - self.start_chapter + 1
             for idx, chapter_num in enumerate(range(self.start_chapter, self.end_chapter + 1), 1):
+                # Stop immediately on captcha/rate-limit: hammering a blocked
+                # site turns one failure into an IP ban.
+                if self.stop_requested:
+                    print(f"  ⚠ Stopping early due to captcha/rate limit")
+                    break
+
                 # Display progress
                 progress = (idx / total_chapters) * 100
                 print(f"[{progress:5.1f}%] Scraping chapter {chapter_num}/{self.end_chapter}")
@@ -419,6 +549,9 @@ class UnifiedScraper:
                 else:
                     self.failed_count += 1
                     self.failed_chapters.append(chapter_num)
+                    # Next-link chain is broken after a failure — fall back
+                    # to URL building for the next chapter.
+                    self.next_url = None
                 
                 # Small delay between chapters
                 time.sleep(0.5)
@@ -640,20 +773,20 @@ def parse_cli_args():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Interactive mode (no arguments)
-  python unified_scraper.py
-  
-  # Quick mode (set QUICK_MODE = True at top of file)
-  python unified_scraper.py
-  
+  # Interactive mode (no arguments, no quick_config.json)
+  python scraper.py
+
+  # Quick mode (uses quick_config.json in the project root)
+  python scraper.py
+
   # CLI mode with all parameters
-  python unified_scraper.py --website empirenovel.com --novel-name "nine-star-hegemon" --novel-slug "nine-star-hegemon-body-arts" --start 1 --end 100
+  python scraper.py --website empirenovel.com --novel-name "nine-star-hegemon" --novel-slug "nine-star-hegemon-body-arts" --start 1 --end 100
   
   # CLI mode with start chapter only (will prompt for end)
-  python unified_scraper.py --website empirenovel.com --novel-name "nine-star-hegemon" --novel-slug "nine-star-hegemon-body-arts" --start 1
+  python scraper.py --website empirenovel.com --novel-name "nine-star-hegemon" --novel-slug "nine-star-hegemon-body-arts" --start 1
   
   # CLI mode with end chapter only (will prompt for start)
-  python unified_scraper.py --website empirenovel.com --novel-name "nine-star-hegemon" --novel-slug "nine-star-hegemon-body-arts" --end 100
+  python scraper.py --website empirenovel.com --novel-name "nine-star-hegemon" --novel-slug "nine-star-hegemon-body-arts" --end 100
         """
     )
     
@@ -692,22 +825,62 @@ Examples:
     return parser.parse_args()
 
 
+def load_quick_config():
+    """Load quick-mode settings from quick_config.json, or None if absent."""
+    if not os.path.exists(QUICK_CONFIG_FILE):
+        return None
+    try:
+        with open(QUICK_CONFIG_FILE, 'r', encoding='utf-8') as f:
+            cfg = json.load(f)
+        required = ('website', 'novel_name', 'novel_slug', 'start_chapter', 'end_chapter')
+        missing = [k for k in required if k not in cfg]
+        if missing:
+            print(f"[X] quick_config.json missing keys: {', '.join(missing)}")
+            sys.exit(1)
+        return cfg
+    except json.JSONDecodeError as e:
+        print(f"[X] Invalid quick_config.json: {e}")
+        sys.exit(1)
+
+
+def run_scraper(website, novel_name, novel_slug, start_chapter, end_chapter):
+    """Create the scraper, run the range, print the final message."""
+    scraper = UnifiedScraper(website, novel_name, novel_slug, start_chapter, end_chapter)
+    results = scraper.scrape_range()
+    if results['failed']:
+        print(f"\n⚠ Scraping completed with {len(results['failed'])} failures")
+        print(f"  You can retry the failed chapters later")
+    else:
+        print(f"\n✓ All chapters downloaded successfully!")
+        print(f"  Files saved to: {scraper.download_dir}")
+
+
 def main():
     """Main function"""
-    # Access module-level configuration variables
-    global website, novel_name, novel_slug, start_chapter, end_chapter
-    
     try:
-        # Check if we should use QUICK_MODE (no CLI arguments and QUICK_MODE is True)
-        if len(sys.argv) == 1 and QUICK_MODE:
-            # Use configuration from top of file
+        args = parse_cli_args()
+
+        # Quick mode: no CLI arguments and quick_config.json present
+        if len(sys.argv) == 1:
+            quick_cfg = load_quick_config()
+        else:
+            quick_cfg = None
+
+        if quick_cfg:
+
+            website = quick_cfg['website']
+            novel_name = quick_cfg['novel_name']
+            novel_slug = quick_cfg['novel_slug']
+            start_chapter = int(quick_cfg['start_chapter'])
+            end_chapter = int(quick_cfg['end_chapter'])
+
             print("\n" + "="*60)
             print(" " * 15 + "UNIFIED NOVEL SCRAPER")
             print(" " * 12 + "NovelScrape Project")
             print(" " * 20 + "Quick Mode")
             print("="*60 + "\n")
-            
-            print("Using configuration from file:")
+
+            print(f"Using configuration from {QUICK_CONFIG_FILE}:")
             print(f"  Website:        {WEBSITE_CONFIGS[website]['name']} ({website})")
             print(f"  Novel Name:     {novel_name}")
             print(f"  Novel Slug:     {novel_slug}")
@@ -715,18 +888,25 @@ def main():
             print(f"  End Chapter:    {end_chapter}")
             print(f"  Total Chapters: {end_chapter - start_chapter + 1}")
             print("="*60 + "\n")
-            
-            # Create scraper and start scraping directly
-            scraper = UnifiedScraper(website, novel_name, novel_slug, start_chapter, end_chapter)
-            results = scraper.scrape_range()
-            
-            # Final message
-            if results['failed']:
-                print(f"\n⚠ Scraping completed with {len(results['failed'])} failures")
-                print(f"  You can retry the failed chapters later")
-            else:
-                print(f"\n✓ All chapters downloaded successfully!")
-                print(f"  Files saved to: {scraper.download_dir}")
+
+            run_scraper(website, novel_name, novel_slug, start_chapter, end_chapter)
+        elif any([args.website, args.novel_name, args.novel_slug,
+                  args.start is not None, args.end is not None]):
+            # CLI mode: use provided args, prompt only for what's missing
+            website = args.website
+            while website not in WEBSITE_CONFIGS:
+                if website is not None:
+                    print(f"✗ Unsupported website: {website}")
+                website = get_website_choice()
+            novel_name = args.novel_name or get_novel_name()
+            novel_slug = args.novel_slug or get_novel_slug()
+            start_chapter, end_chapter = args.start, args.end
+            if start_chapter is None or end_chapter is None:
+                prompted_start, prompted_end = get_chapter_range()
+                start_chapter = start_chapter if start_chapter is not None else prompted_start
+                end_chapter = end_chapter if end_chapter is not None else prompted_end
+
+            run_scraper(website, novel_name, novel_slug, start_chapter, end_chapter)
         else:
             # Display welcome message
             display_welcome()
@@ -745,17 +925,7 @@ def main():
                 print("\n✗ Scraping cancelled by user")
                 return
             
-            # Create scraper and start scraping
-            scraper = UnifiedScraper(website, novel_name, novel_slug, start_chapter, end_chapter)
-            results = scraper.scrape_range()
-            
-            # Final message
-            if results['failed']:
-                print(f"\n⚠ Scraping completed with {len(results['failed'])} failures")
-                print(f"  You can retry the failed chapters later")
-            else:
-                print(f"\n✓ All chapters downloaded successfully!")
-                print(f"  Files saved to: {scraper.download_dir}")
+            run_scraper(website, novel_name, novel_slug, start_chapter, end_chapter)
         
     except KeyboardInterrupt:
         print("\n\n✗ Operation cancelled by user")

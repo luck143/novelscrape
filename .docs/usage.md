@@ -1,6 +1,6 @@
 # Unified File Combiner - Usage Examples
 
-This file contains practical examples of using the unified_combiner.py script
+This file contains practical examples of using the combiner.py script
 for various common tasks in the NovelScrape workflow.
 
 > **Recommended Website:** EmpireNovel (empirenovel.com) with novel "nine-star-hegemon-body-arts" is the most recently tested and verified configuration. Website domains may change over time, so start with EmpireNovel if you encounter issues with other sites.
@@ -19,7 +19,7 @@ for various common tasks in the NovelScrape workflow.
 
 ### Basic Interactive Usage
 ```bash
-python unified_combiner.py
+python combiner.py
 ```
 
 This will prompt you through all options step by step.
@@ -38,18 +38,18 @@ This will prompt you through all options step by step.
 
 ### Basic Combine (auto-generated filename)
 ```bash
-python unified_combiner.py --combine --input downloads/novelname
+python combiner.py --combine --input downloads/novelname
 ```
 Output: `downloads/novelname_1234567890.txt`
 
 ### Combine with Custom Output
 ```bash
-python unified_combiner.py --combine --input downloads/novelname --output downloads/my_novel.txt
+python combiner.py --combine --input downloads/novelname --output downloads/my_novel.txt
 ```
 
 ### Combine with Full Chapter Markers
 ```bash
-python unified_combiner.py --combine --input downloads/novelname --marker full
+python combiner.py --combine --input downloads/novelname --marker full
 ```
 Output format:
 ```
@@ -62,7 +62,7 @@ Output format:
 
 ### Combine with Simple Chapter Markers
 ```bash
-python unified_combiner.py --combine --input downloads/novelname --marker simple
+python combiner.py --combine --input downloads/novelname --marker simple
 ```
 Output format:
 ```
@@ -73,7 +73,7 @@ Output format:
 
 ### Combine with No Chapter Markers
 ```bash
-python unified_combiner.py --combine --input downloads/novelname --marker none
+python combiner.py --combine --input downloads/novelname --marker none
 ```
 Output format:
 ```
@@ -84,7 +84,7 @@ Output format:
 
 ### Combine with Text Cleaning
 ```bash
-python unified_combiner.py --combine --input downloads/novelname --clean
+python combiner.py --combine --input downloads/novelname --clean
 ```
 Removes:
 - Dots between letters (e.g., `T.h.e. y.o.u.n.g.` → `The young.`)
@@ -93,7 +93,7 @@ Removes:
 
 ### Combine with All Options
 ```bash
-python unified_combiner.py --combine \
+python combiner.py --combine \
   --input downloads/novelname \
   --output downloads/cleaned_novel.txt \
   --marker full \
@@ -102,7 +102,7 @@ python unified_combiner.py --combine \
 
 ### Quiet Mode (no progress output)
 ```bash
-python unified_combiner.py --combine --input downloads/novelname --quiet
+python combiner.py --combine --input downloads/novelname --quiet
 ```
 
 ---
@@ -111,35 +111,35 @@ python unified_combiner.py --combine --input downloads/novelname --quiet
 
 ### Basic EPUB Creation (auto-generated filename)
 ```bash
-python unified_combiner.py --epub --input downloads/novelname
+python combiner.py --epub --input downloads/novelname
 ```
-Output: `downloads/novelname.epub`
+Output: `downloads/epub/novelname.epub`
 
 ### Create EPUB with Custom Output
 ```bash
-python unified_combiner.py --epub --input downloads/novelname --output my_novel.epub
+python combiner.py --epub --input downloads/novelname --output my_novel.epub
 ```
 
 ### Create EPUB with Custom Metadata
 ```bash
-python unified_combiner.py --epub \
+python combiner.py --epub \
   --input downloads/novelname \
-  --output downloads/ninestar.epub \
+  --output downloads/epub/ninestar.epub \
   --title "Nine Star Hegemon" \
   --author "Mad Snail"
 ```
 
 ### Create EPUB with Text Cleaning
 ```bash
-python unified_combiner.py --epub --input downloads/novelname --clean
+python combiner.py --epub --input downloads/novelname --clean
 ```
 Applies text cleaning to each chapter before creating EPUB.
 
 ### Create EPUB with All Options
 ```bash
-python unified_combiner.py --epub \
+python combiner.py --epub \
   --input downloads/novelname \
-  --output downloads/cleaned_novel.epub \
+  --output downloads/epub/cleaned_novel.epub \
   --title "My Novel Title" \
   --author "Author Name" \
   --clean
@@ -147,7 +147,7 @@ python unified_combiner.py --epub \
 
 ### Quiet EPUB Creation
 ```bash
-python unified_combiner.py --epub --input downloads/novelname --quiet
+python combiner.py --epub --input downloads/novelname --quiet
 ```
 
 ---
@@ -190,19 +190,19 @@ After:  "This is a test"
 
 ### Using Absolute Paths
 ```bash
-python unified_combiner.py --combine --input "C:\Users\username\Downloads\novel_chapters" --output "C:\Users\username\Documents\novel.txt"
+python combiner.py --combine --input "C:\Users\username\Downloads\novel_chapters" --output "C:\Users\username\Documents\novel.txt"
 ```
 
 ### Combining from Different Directory
 ```bash
-python unified_combiner.py --combine --input "D:\MyNovels\Book1\chapters" --output "D:\MyNovels\Book1.txt"
+python combiner.py --combine --input "D:\MyNovels\Book1\chapters" --output "D:\MyNovels\Book1.txt"
 ```
 
 ### Batch Processing (Windows)
 ```bash
 # Combine multiple novels
 for /d %i in (novel1 novel2 novel3) do (
-  python unified_combiner.py --combine --input downloads\%i --output downloads\%i_combined.txt
+  python combiner.py --combine --input downloads\%i --output downloads\%i_combined.txt
 )
 ```
 
@@ -210,21 +210,21 @@ for /d %i in (novel1 novel2 novel3) do (
 ```bash
 # Combine multiple novels
 for novel in novel1 novel2 novel3; do
-  python unified_combiner.py --combine --input downloads/$novel --output downloads/${novel}_combined.txt
+  python combiner.py --combine --input downloads/$novel --output downloads/${novel}_combined.txt
 done
 ```
 
 ### Create EPUBs for Multiple Novels (Windows)
 ```bash
 for /d %i in (novel1 novel2 novel3) do (
-  python unified_combiner.py --epub --input downloads\%i --output downloads\%i.epub --title "%i" --author "Various Authors"
+  python combiner.py --epub --input downloads\%i --output downloads\%i.epub --title "%i" --author "Various Authors"
 )
 ```
 
 ### Create EPUBs for Multiple Novels (Linux/Mac)
 ```bash
 for novel in novel1 novel2 novel3; do
-  python unified_combiner.py --epub --input downloads/$novel --output downloads/${novel}.epub --title "$novel" --author "Various Authors"
+  python combiner.py --epub --input downloads/$novel --output downloads/epub/${novel}.epub --title "$novel" --author "Various Authors"
 done
 ```
 
@@ -236,12 +236,12 @@ done
 
 ```bash
 # Step 1: Scrape novel
-python unified_scraper.py
+python scraper.py
 
 # Step 2: Create cleaned EPUB directly
-python unified_combiner.py --epub \
+python combiner.py --epub \
   --input downloads/novelname \
-  --output downloads/novelname_clean.epub \
+  --output downloads/epub/novelname_clean.epub \
   --title "Novel Title" \
   --author "Author Name" \
   --clean
@@ -251,12 +251,12 @@ python unified_combiner.py --epub \
 
 ```bash
 # Step 1: Scrape novel
-python unified_scraper.py
+python scraper.py
 
 # Step 2: Create EPUB directly from chapter files
-python unified_combiner.py --epub \
+python combiner.py --epub \
   --input downloads/novelname \
-  --output downloads/novelname.epub \
+  --output downloads/epub/novelname.epub \
   --title "Novel Title" \
   --author "Author Name" \
   --clean
@@ -268,11 +268,11 @@ python unified_combiner.py --epub \
 
 ```bash
 # Step 1: Scrape first 5 chapters for testing
-python unified_scraper.py
+python scraper.py
 # Select website, enter novel info, chapter range: 1-5
 
 # Step 2: Test combine with cleaning
-python unified_combiner.py --combine \
+python combiner.py --combine \
   --input downloads/novelname \
   --output downloads/test.txt \
   --clean
@@ -285,24 +285,24 @@ python unified_combiner.py --combine \
 
 ```bash
 # Step 1: Scrape novel
-python unified_scraper.py
+python scraper.py
 
 # Step 2: Create combined TXT (no markers)
-python unified_combiner.py --combine \
+python combiner.py --combine \
   --input downloads/novelname \
   --output downloads/novelname_raw.txt \
   --marker none
 
 # Step 3: Create combined TXT (with markers)
-python unified_combiner.py --combine \
+python combiner.py --combine \
   --input downloads/novelname \
   --output downloads/novelname_marked.txt \
   --marker full
 
 # Step 4: Create cleaned EPUB
-python unified_combiner.py --epub \
+python combiner.py --epub \
   --input downloads/novelname \
-  --output downloads/novelname.epub \
+  --output downloads/epub/novelname.epub \
   --title "Novel Title" \
   --author "Author Name" \
   --clean
@@ -312,18 +312,18 @@ python unified_combiner.py --epub \
 
 ```bash
 # Step 1: Resume scraping from last chapter
-python unified_scraper.py
+python scraper.py
 # Enter same novel info, it will skip already downloaded chapters
 
 # Step 2: Combine all chapters with cleaning
-python unified_combiner.py --combine \
+python combiner.py --combine \
   --input downloads/novelname \
   --output downloads/novelname_final.txt \
   --marker full \
   --clean
 
 # Step 3: Create final EPUB
-python unified_combiner.py --epub \
+python combiner.py --epub \
   --input downloads/novelname \
   --output downloads/novelname_final.epub \
   --title "Novel Title" \
@@ -392,7 +392,7 @@ python unified_combiner.py --epub \
 - `1_combine2.py` → Use `--marker full` with `--combine`
 - `combine.py` → Use `--marker simple` with `--combine`
 - `combine_epub.py` → Use `--epub`
-- `wanderinginn/combine.py` → Use `--combine`
+- `wanderinginn/combine.py` (now in `backups/wanderinginn/`) → Use `--combine`
 - `clean_text_file.py` → Use `--clean` flag
 - `2_publish_epub.py` → Use `--epub` (creates EPUB directly from TXT files)
 - `2_publish_epub2.py` → Use `--epub` (creates EPUB directly from TXT files)
@@ -407,7 +407,7 @@ python combine.py
 
 **New:**
 ```bash
-python unified_combiner.py --combine --input downloads/novelname
+python combiner.py --combine --input downloads/novelname
 ```
 
 **Old:**
@@ -417,10 +417,14 @@ python clean_text_file.py downloads/novel.txt
 
 **New:**
 ```bash
-python unified_combiner.py --combine --input downloads/novelname --clean
+python combiner.py --combine --input downloads/novelname --clean
 ```
 
 ---
 
 For more information, see:
-- unified_combiner.py --help - Command-line help
+- combiner.py --help - Command-line help
+
+
+-------------
+& D:\pypro\novelscrape\venv\Scripts\Activate.ps1

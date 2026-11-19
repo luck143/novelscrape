@@ -1,0 +1,12 @@
+{
+  "operation": "epub",
+  "input_path": "downloads/eternal-cultivation-of-alchemy",
+  "output_path": "downloads/epub/eternal-cultivation-of-alchemy.epub",
+  "chapter_marker": "full",
+  "clean_text": true,
+  "start_chapter": null,
+  "end_chapter": null,
+  "epub_title": "eternal-cultivation-of-alchemy",
+  "epub_author": "Unknown",
+  "quiet": false
+}

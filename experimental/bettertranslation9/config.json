@@ -1,0 +1,17 @@
+{
+  "name": "BetterTranslation (wordpress.com)",
+  "novel_name": "bettertranslation9-test",
+  "novel_slug": "the-greatest-estate-developer-novel-english-translation",
+  "index_url": "https://bettertranslation9.wordpress.com/the-greatest-estate-developer-novel-english-translation/",
+  "toc_file": "experimental/bettertranslation9/toc.json",
+  "content_selector": "div.entry-content",
+  "wait_type": "CSS_SELECTOR",
+  "wait_selector": "div.entry-content",
+  "timeout": 30,
+  "delay": 2,
+  "headless": true,
+  "use_standard_chrome": true,
+  "captcha_detection": false,
+  "toc_link_pattern": "Chapter\\s+(\\d+)",
+  "trailing_markers": ["Leave a Reply"]
+}
