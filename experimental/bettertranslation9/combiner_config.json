@@ -1,12 +1,12 @@
 {
   "operation": "epub",
-  "input_path": "downloads/bettertranslation9-test",
-  "output_path": "downloads/epub/bettertranslation9-test.epub",
+  "input_path": "downloads/the-greatest-estate-developer",
+  "output_path": "downloads/epub/the-greatest-estate-developer.epub",
   "chapter_marker": "full",
   "clean_text": true,
   "start_chapter": null,
   "end_chapter": null,
-  "epub_title": "The Greatest Estate Developer (BetterTranslation, EXPERIMENTAL)",
+  "epub_title": "The Greatest Estate Developer (BetterTranslation)",
   "epub_author": "BetterTranslation",
   "quiet": false
 }

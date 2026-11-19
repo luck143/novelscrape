@@ -59,6 +59,7 @@ import time
 import json
 import codecs
 import argparse
+import re
 
 # Set UTF-8 encoding for Windows console
 if sys.platform == 'win32':
@@ -152,6 +153,10 @@ class UnifiedScraper:
         self.stop_requested = False
         # Next-chapter URL when config uses use_next_link (see scrape_chapter)
         self.next_url = None
+        # TOC map {chapter_num: {'url','title'}} when config uses use_toc
+        # (TOC-driven sites such as bettertranslation9.wordpress.com have
+        # irregular date-slug chapter URLs that cannot be built from a pattern)
+        self.toc = {}
     
     def initialize_driver(self):
         """Initialize Chrome driver with appropriate configuration"""
@@ -233,6 +238,42 @@ class UnifiedScraper:
             print(f"✗ Error initializing Chrome driver: {e}")
             return False
     
+    def build_toc(self):
+        """
+        Fetch the novel index page and build the chapter_num -> URL map.
+
+        Used when the site config has 'use_toc': true. The index URL comes
+        from 'toc_index_pattern'.format(novel_slug=...). Each <a> whose text
+        matches 'toc_link_pattern' (default 'Chapter <N>') is recorded with
+        its href and link text (used later as the chapter heading).
+        """
+        index_url = self.config['toc_index_pattern'].format(novel_slug=self.novel_slug)
+        print(f"Fetching chapter TOC: {index_url}")
+        self.driver.get(index_url)
+        self.wait_for_page_load()
+
+        pattern = re.compile(self.config.get('toc_link_pattern', r'Chapter\s+(\d+)'),
+                             re.IGNORECASE)
+        domain = self.website
+        for link in self.driver.find_elements(By.CSS_SELECTOR, 'a'):
+            url = link.get_attribute('href') or ''
+            text = (link.text or '').strip()
+            if not url or not text or domain not in url:
+                continue
+            m = pattern.search(text)
+            if not m:
+                continue
+            num = int(m.group(1))
+            if num not in self.toc:
+                self.toc[num] = {'url': url, 'title': text}
+
+        if not self.toc:
+            print(f"✗ No chapter links found on the TOC page")
+            return False
+        print(f"✓ TOC built: {len(self.toc)} chapters "
+              f"({min(self.toc)}..{max(self.toc)})")
+        return True
+
     def build_url(self, chapter_num):
         """
         Build URL for a specific chapter
@@ -241,8 +282,11 @@ class UnifiedScraper:
             chapter_num: Chapter number
             
         Returns:
-            Full URL for the chapter
+            Full URL for the chapter (None if not in TOC for use_toc sites)
         """
+        if self.config.get('use_toc', False):
+            entry = self.toc.get(chapter_num)
+            return entry['url'] if entry else None
         return self.config['url_pattern'].format(
             novel_slug=self.novel_slug,
             chapter_num=chapter_num
@@ -295,7 +339,17 @@ class UnifiedScraper:
                 pass  # fall back to full page_source
 
         text = trafilatura.extract(content)
-        return unidecode(text) if text else ""
+        if not text:
+            return ""
+        text = unidecode(text)
+
+        # Per-site trailing markers (config 'trailing_markers'): trim page
+        # furniture that trails the chapter text (e.g. WordPress comment form).
+        for marker in self.config.get('trailing_markers', []):
+            idx = text.find(marker)
+            if idx != -1:
+                text = text[:idx]
+        return text.rstrip()
     
     def check_captcha(self, text):
         """
@@ -424,6 +478,9 @@ class UnifiedScraper:
             url = self.next_url
         else:
             url = self.build_url(chapter_num)
+            if url is None:
+                print(f"  ✗ Chapter {chapter_num} not found in TOC")
+                return False
         
         for attempt in range(max_retries + 1):
             if attempt > 0:
@@ -493,6 +550,15 @@ class UnifiedScraper:
                             continue
                         return False
                 
+                # TOC sites: the post heading sits outside the content
+                # container, so prepend the TOC title normalized to the
+                # 'Chapter N: ...' convention the combiner detects.
+                if self.toc:
+                    entry = self.toc.get(chapter_num)
+                    if entry and not re.match(r'^Chapter\s+\d+', text, re.IGNORECASE):
+                        heading = re.sub(r'^.*?(Chapter\s+\d+.*)$', r'\1', entry['title'])
+                        text = f"{heading}\n\n{text}"
+
                 if self.save_chapter(chapter_num, text):
                     print(f"  ✓ Chapter {chapter_num} downloaded successfully")
                     return True
@@ -527,6 +593,12 @@ class UnifiedScraper:
         
         # Initialize driver
         if not self.initialize_driver():
+            return {'success': [], 'failed': list(range(self.start_chapter, self.end_chapter + 1))}
+        
+        # TOC-driven sites: build the chapter URL map once before scraping
+        if self.config.get('use_toc', False) and not self.build_toc():
+            if self.driver:
+                self.driver.quit()
             return {'success': [], 'failed': list(range(self.start_chapter, self.end_chapter + 1))}
         
         try:

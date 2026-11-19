@@ -186,7 +186,8 @@ novelscrape/
 ```
 
 > **Note**: Old documentation lives in `.docs/archive/`. Current docs: this README,
-> `AGENTS.md`, `.docs/README.md`, `.docs/add-a-website.md`, `.docs/usage.md`.
+> `AGENTS.md`, `.docs/README.md`, `.docs/add-a-website.md`, `.docs/usage.md`,
+> `.docs/scrape-new-novel.md`.
 
 ## Configuration
 
@@ -246,6 +247,7 @@ If detected, wait or use a different approach.
 
 For detailed usage examples and advanced features, see:
 - [`.docs/usage.md`](.docs/usage.md) - Comprehensive usage guide
+- [`.docs/scrape-new-novel.md`](.docs/scrape-new-novel.md) - How to scrape another novel from an already-supported website
 - [`.docs/add-a-website.md`](.docs/add-a-website.md) - How to add a new website
 
 ## Memory Bank (Not Implemented)

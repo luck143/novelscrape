@@ -27,5 +27,7 @@ Owner directive: these rules apply to EVERY new website added to NovelScrape.
   `scrape.py`, `config.json`, `combiner_config.json`, `toc.json`.
 - Config: `experimental/bettertranslation9/config.json` (same shape as
   `scraper_configs.json` entries + `toc_link_pattern`, `trailing_markers`).
-- Status: validated (chapters 1–3 and 130–132 → EPUB), awaiting owner approval to
-  integrate.
+- Status: **INTEGRATED into the main scraper** (owner approval). Site entry
+  `bettertranslation9.wordpress.com` in `scraper_configs.json` with `use_toc: true`;
+  TOC-driven scraping + `trailing_markers` support added to `scraper.py`. End-to-end
+  test via `scraper.py` produced byte-identical output to this experimental pipeline.

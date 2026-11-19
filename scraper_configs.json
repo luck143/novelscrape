@@ -155,6 +155,24 @@
       "captcha_detection": true,
       "use_next_link": false,
       "use_standard_chrome": false
+    },
+    "bettertranslation9.wordpress.com": {
+      "name": "BetterTranslation (wordpress.com)",
+      "url_pattern": "https://bettertranslation9.wordpress.com/{novel_slug}/",
+      "use_toc": true,
+      "toc_index_pattern": "https://bettertranslation9.wordpress.com/{novel_slug}/",
+      "toc_link_pattern": "Chapter\\s+(\\d+)",
+      "content_selector": "div.entry-content",
+      "trailing_markers": ["Leave a Reply"],
+      "wait_type": "CSS_SELECTOR",
+      "wait_selector": "div.entry-content",
+      "timeout": 30,
+      "delay": 2,
+      "headless": false,
+      "chrome_version": null,
+      "captcha_detection": false,
+      "use_next_link": false,
+      "use_standard_chrome": true
     }
   }
 }

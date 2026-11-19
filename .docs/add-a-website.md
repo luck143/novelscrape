@@ -54,6 +54,8 @@ Field meanings (and what existing sites use them for):
 | `use_next_link` | `true` = fetch the first chapter via the URL pattern, then follow the page's next-chapter link (`wait_selector` used as its element ID) for subsequent chapters (novelbin/novlove — for sites where chapter numbers aren't URL-predictable) |
 | `use_standard_chrome` | `true` = plain Selenium + persistent `chromeprofile/` dir instead of undetected_chromedriver (lightnovelworld.co — needed when UC's patching itself trips the site) |
 | `content_selector` | Optional CSS selector for the chapter-text container. Set it when trafilatura on the full page picks up menus/ads instead of the chapter. Falls back to the full page if the element is missing |
+| `trailing_markers` | Optional list of strings — first occurrence of each is trimmed from the end of the extracted text (e.g. `["Leave a Reply"]` for WordPress comment forms) |
+| `use_toc` | `true` = TOC-driven scraping (bettertranslation9.wordpress.com — chapter URLs are irregular date-slug posts, not URL-predictable). Before scraping, `build_toc()` fetches `toc_index_pattern`.format(novel_slug=…), parses every link whose text matches `toc_link_pattern` (default `Chapter\\s+(\\d+)`), and maps chapter number → URL (+ link text used as the chapter heading). `url_pattern` is ignored |
 
 ## 3. Test loop
 
