@@ -10,6 +10,7 @@ A Python-based web scraping system for downloading novel chapters from multiple 
 - **Format Conversion**: Convert scraped content to TXT or EPUB formats
 - **Text Cleaning**: Remove unwanted patterns and formatting issues from scraped text
 - **Unified Interface**: Single scraper script for all supported websites
+- **Web Dashboard**: Local web UI (`webapp.py`) for scraping, combining, and downloading — control it with `venv\Scripts\python.exe serverctl.py start|stop|restart|status|logs` (works in any shell, never spawns a duplicate); see `.docs/web-dashboard.md`
 
 ## Supported Websites
 

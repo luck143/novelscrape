@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NovelScrape Dashboard</title>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --border: #2a2e39;
+    --text: #e6e8ee; --muted: #9aa0ae; --accent: #4f8cff; --ok: #3fb96f; --err: #e5586b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.5 "Segoe UI", system-ui, sans-serif; }
+  header { padding: 16px 24px; border-bottom: 1px solid var(--border); }
+  header h1 { margin: 0; font-size: 18px; }
+  header small { color: var(--muted); }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px; display: grid;
+         grid-template-columns: 1fr 1fr; gap: 24px; }
+  .card { background: var(--panel); border: 1px solid var(--border);
+          border-radius: 10px; padding: 20px; }
+  .card h2 { margin: 0 0 14px; font-size: 15px; text-transform: uppercase;
+             letter-spacing: .05em; color: var(--muted); }
+  label { display: block; margin: 10px 0 4px; color: var(--muted); font-size: 12px; }
+  input, select { width: 100%; padding: 8px 10px; background: var(--bg);
+                  border: 1px solid var(--border); border-radius: 6px;
+                  color: var(--text); font-size: 14px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  button { margin-top: 16px; width: 100%; padding: 10px; border: 0;
+           border-radius: 6px; background: var(--accent); color: #fff;
+           font-size: 14px; font-weight: 600; cursor: pointer; }
+  button:hover { filter: brightness(1.1); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  button.secondary { background: var(--border); }
+  .log { background: #0a0c10; border: 1px solid var(--border); border-radius: 6px;
+         padding: 12px; height: 260px; overflow-y: auto; font: 12px/1.45 Consolas, monospace;
+         white-space: pre-wrap; color: #c3c8d4; }
+  .log.err { color: var(--err); }
+  .status { margin-top: 10px; font-size: 13px; }
+  .status.ok { color: var(--ok); } .status.err { color: var(--err); }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td, th { padding: 6px 4px; border-bottom: 1px solid var(--border); text-align: left; }
+  th { color: var(--muted); font-weight: 500; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .muted { color: var(--muted); }
+  #combine-card select, #combine-card input { margin-bottom: 2px; }
+  .filelist { max-height: 160px; overflow-y: auto; }
+  .full { grid-column: 1 / -1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>NovelScrape <small>local dashboard · <span id="job-badge" class="muted">idle</span></small></h1>
+</header>
+<main>
+  <div class="card">
+    <h2>Scrape chapters</h2>
+    <label>Website</label>
+    <select id="website"><option>Loading…</option></select>
+    <label>Novel name (folder name)</label>
+    <input id="novel_name" placeholder="e.g. eternal-cultivation-of-alchemy">
+    <label>Novel slug (URL part)</label>
+    <input id="novel_slug" placeholder="e.g. eternal-cultivation-of-alchemy">
+    <div class="row">
+      <div><label>Start chapter</label><input id="start" type="number" min="1"></div>
+      <div><label>End chapter</label><input id="end" type="number" min="1"></div>
+    </div>
+    <button id="scrape-btn">Start scraping</button>
+    <div id="scrape-status" class="status"></div>
+  </div>
+
+  <div class="card">
+    <h2>Job console</h2>
+    <div id="log" class="log">No job yet. Start a scrape or combine.</div>
+    <div id="job-status" class="status muted"></div>
+  </div>
+
+  <div class="card">
+    <h2>Combine → TXT / EPUB</h2>
+    <label>Novel folder</label>
+    <select id="cb-novel"></select>
+    <div class="row">
+      <div><label>Output</label>
+        <select id="cb-op"><option value="epub">EPUB</option><option value="txt">TXT</option></select></div>
+      <div><label>Chapter marker</label>
+        <select id="cb-marker"><option value="full">full</option><option value="simple">simple</option><option value="none">none</option></select></div>
+    </div>
+    <div class="row">
+      <div><label>EPUB title</label><input id="cb-title"></div>
+      <div><label>EPUB author</label><input id="cb-author" placeholder="Unknown"></div>
+    </div>
+    <label class="muted" style="margin-top:12px">
+      <input type="checkbox" id="cb-clean" checked style="width:auto"> Clean text while combining
+    </label>
+    <button id="combine-btn" class="secondary">Combine</button>
+    <div id="combine-status" class="status"></div>
+  </div>
+
+  <div class="card">
+    <h2>Library</h2>
+    <div id="library">Loading…</div>
+  </div>
+</main>
+
+<script>
+const $ = id => document.getElementById(id);
+
+async function loadWebsites() {
+  const sites = await (await fetch('/api/websites')).json();
+  if (!Array.isArray(sites)) return;
+  $('website').innerHTML = sites.map(s =>
+    `<option value="${s.id}">${s.name}</option>`).join('');
+}
+
+async function loadLibrary() {
+  const lib = await (await fetch('/api/library')).json();
+  $('cb-novel').innerHTML = (lib.novels || []).map(n =>
+    `<option value="${n.name}">${n.name} (${n.chapters} ch)</option>`).join('') ||
+    '<option value="">— no novels downloaded —</option>';
+  const epubRows = (lib.epubs || []).map(f =>
+    `<tr><td>${f.name}</td><td class="muted">${(f.size/1024).toFixed(0)} KB</td>
+     <td><a href="/api/download?file=${encodeURIComponent(f.name)}">download</a></td></tr>`).join('');
+  const txtRows = (lib.txt_files || []).map(f =>
+    `<tr><td>${f.name}</td><td class="muted">${(f.size/1024).toFixed(0)} KB</td>
+     <td><a href="/api/download?file=${encodeURIComponent(f.name)}">download</a></td></tr>`).join('');
+  const novelRows = (lib.novels || []).map(n =>
+    `<tr><td>${n.name}</td><td class="muted">${n.chapters} chapters${n.first != null ? ` (${n.first}–${n.last})` : ''}</td><td></td></tr>`).join('');
+  $('library').innerHTML = `
+    ${novelRows ? `<table>${novelRows}</table>` : '<p class="muted">No novels yet.</p>'}
+    ${(epubRows || txtRows) ? `<table>${epubRows}${txtRows}</table>` : ''}`;
+}
+
+function setBusy(busy, msg) {
+  $('scrape-btn').disabled = busy;
+  $('combine-btn').disabled = busy;
+  $('job-badge').textContent = msg;
+}
+
+function showJob(snap) {
+  const log = $('log');
+  const err = /✗|\[X\]/.test(snap.log ? snap.log.join('\n') : '');
+  log.classList.toggle('err', err);
+  log.textContent = (snap.log || []).join('\n') || '…';
+  log.scrollTop = log.scrollHeight;
+  $('job-status').textContent =
+    `${snap.kind || ''} · ${snap.title || ''} · ${snap.state}` + (snap.finished ? ' ✓' : '…');
+  if (snap.state === 'running') {
+    setBusy(true, snap.kind + ' running…');
+  } else if (snap.state === 'done') {
+    setBusy(false, 'done');
+    loadLibrary();
+  } else if (snap.state === 'error') {
+    setBusy(false, 'error');
+  }
+}
+
+const es = new EventSource('/api/job/stream');
+es.onmessage = e => {
+  const snap = JSON.parse(e.data);
+  if (snap.state === 'idle') { setBusy(false, 'idle'); return; }
+  showJob(snap);
+};
+
+$('scrape-btn').onclick = async () => {
+  $('scrape-status').textContent = '';
+  const body = {
+    website: $('website').value,
+    novel_name: $('novel_name').value.trim(),
+    novel_slug: $('novel_slug').value.trim(),
+    start_chapter: $('start').value,
+    end_chapter: $('end').value,
+  };
+  const r = await fetch('/api/scrape', {method: 'POST',
+    headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  const j = await r.json();
+  $('scrape-status').textContent = r.ok ? 'Started.' : (j.error || 'Failed');
+  $('scrape-status').className = 'status ' + (r.ok ? 'ok' : 'err');
+};
+
+$('cb-novel').onchange = () => { $('cb-title').value = $('cb-novel').value; };
+$('cb-op').onchange = () => {
+  const epub = $('cb-op').value === 'epub';
+  $('cb-title').parentElement.style.display = epub ? '' : 'none';
+  $('cb-author').parentElement.style.display = epub ? '' : 'none';
+};
+
+$('combine-btn').onclick = async () => {
+  $('combine-status').textContent = '';
+  const body = {
+    novel: $('cb-novel').value,
+    operation: $('cb-op').value,
+    chapter_marker: $('cb-marker').value,
+    clean_text: $('cb-clean').checked,
+    epub_title: $('cb-title').value,
+    epub_author: $('cb-author').value || 'Unknown',
+  };
+  const r = await fetch('/api/combine', {method: 'POST',
+    headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+  const j = await r.json();
+  $('combine-status').textContent = r.ok ? 'Started.' : (j.error || 'Failed');
+  $('combine-status').className = 'status ' + (r.ok ? 'ok' : 'err');
+};
+
+loadWebsites();
+loadLibrary();
+</script>
+</body>
+</html>
